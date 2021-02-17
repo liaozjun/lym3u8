@@ -1,4 +1,5 @@
 #pragma once
+
 namespace models {
 	class M3u8Ts;
 	class M3u8Task
@@ -23,7 +24,7 @@ namespace models {
 		~M3u8Task();
 		void LoadDbInit(int64 id, std::string title, std::string url, models::M3u8Task::Status status, std::string folder_name, std::string content, int64_t ct, int64_t et);
 		bool ProcessContext(std::list<std::string>& urls, std::list<std::string>& allm3u8);
-		void SendAria2();
+		 
 	public:
 		int64 _id;//	INTEGER,
 		std::string _title;// "	TEXT,
@@ -57,5 +58,6 @@ namespace models {
 		Status _status;
 		std::string _url;
 		int64_t _create_time;
+		std::string	errorCode;
 	};
 }

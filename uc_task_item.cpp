@@ -1,6 +1,9 @@
 #include "pch.h"
 #include "uc_task_item.h"
-#include "m3u8_repo.h"
+
+#include "third_party/curl/include/curl/curl.h"
+#include "third_party/jsoncpp/include/json/json.h"
+#include "../boost/foreach.hpp"
 UCTaskItem::UCTaskItem()
 {
 	
@@ -78,9 +81,30 @@ bool UCTaskItem::OnClick(ui::EventArgs* args)
 	}
 	return true;
 }
+static size_t OnWriteData(void* buffer, size_t size, size_t nmemb, void* lpVoid)
+{
+	std::string* str = dynamic_cast<std::string*>((std::string *)lpVoid);
+	if (NULL == str || NULL == buffer)
+	{
+		return -1;
+	}
 
+	char* pData = (char*)buffer;
+	str->append(pData, size * nmemb);
+	return nmemb;
+
+}
 void UCTaskItem::ProcessDownloading() {
-
+	ndb::SQLiteDB db_;
+	bool result = db_.Open("./lygg", "", ndb::SQLiteDB::modeReadWrite | ndb::SQLiteDB::modeCreate | ndb::SQLiteDB::modeSerialized);
+	if (result)
+	{
+		if (_task_item_model->_details_ts.size() == 0) {
+			bool res = repos::M3u8Repo::GetTaskDetails(db_, _task_item_model->_id, _task_item_model->_details_ts);
+		}
+		this->ProcessTsDownload(db_);
+	}
+	db_.Close();	
 }
 
 void UCTaskItem::ProcessWaitingForDownload() {
@@ -91,14 +115,174 @@ void UCTaskItem::ProcessWaitingForDownload() {
 	if (result)
 	{
 		bool res = repos::M3u8Repo::GetTaskDetails(db_, _task_item_model->_id, _task_item_model->_details_ts);
-		if (res) {
-			_task_item_model->SendAria2();
-
+		if (res) {			
 			this->_task_item_model->_status = models::M3u8Task::Status::Downloading;
-			//repos::M3u8Repo::UpdateTaskStatus(db_, _task_item_model->_id, _task_item_model->_status);
+			repos::M3u8Repo::UpdateTaskStatus(db_, _task_item_model->_id, _task_item_model->_status);			
 		}
 	}
 	db_.Close();
+}
+std::string GetRequestCommand(std::string action,models::M3u8Task& task,models::M3u8Ts& ts) 
+{
+	Json::FastWriter writer;
+	Json::Value value;
+	Json::Value array;
+	if (action == "aria2.addUri") {
+		/*
+		{"id":"qwer1","jsonrpc":"2.0","method":"aria2.addUri"
+,"params":[["https://product-downloads.atlassian.com/software/sourcetree/windows/ga/SourceTreeSetup-3.4.2.exe"]]}
+*/		
+		//url
+		Json::Value array1;
+		array1.append(ts._url);
+		array.append(array1);
+		//dir
+		std::string theme_dir = nbase::UTF16ToUTF8(nbase::win32::GetCurrentModuleDirectory());
+		Json::Value parms;
+		parms["dir"] = theme_dir + "m3u8\\" + task._folder_name;
+		array.append(parms);
+
+		value["jsonrpc"] = "2.0";
+		value["id"] = nbase::Int64ToString(ts._id);// "qwer";
+		value["method"] = "aria2.addUri";
+		value["params"] = array;
+	}
+	else if (action == "aria2.tellStatus") {
+		/*{"jsonrpc":"2.0", "id" : "qwer",
+			"method" : "aria2.tellStatus",
+			"params" : ["d1d2b5c3acafab0c", ["gid", "totalLength", "completedLength", "errorCode", "status", "errorMessage"]]}*/
+		value["jsonrpc"] = "2.0";
+		value["id"] = nbase::Int64ToString(ts._id);// "qwer";
+		value["method"] = "aria2.tellStatus";		
+		Json::Value array1;
+		array1.append("gid");
+		array1.append("errorCode");
+		array1.append("status");
+		array1.append("errorMessage");
+
+		array.append(ts._aria2_result);
+		array.append(array1);
+		value["params"] = array;
+	}
+	std::string json_file = writer.write(value);
+	return json_file;
+}
+std::string UCTaskItem::RequestAria2AddUri(models::M3u8Ts& ts) {
+	std::string json_file = GetRequestCommand("aria2.addUri", *(_task_item_model.get()), ts);
+	return this->RequestAria2(json_file);
+}
+std::string UCTaskItem::RequestAria2TellStatus(models::M3u8Ts& it)
+{
+	//请求状态
+	std::string json_file = GetRequestCommand("aria2.tellStatus", *(_task_item_model.get()), it);
+	return this->RequestAria2(json_file);
+}
+
+bool UCTaskItem::ProcessTsDownload(ndb::SQLiteDB& db)
+{
+	//find ts 正在下载的 是否完成（包括出错停止） 完成更新对象和数据库状态。
+	/*auto it = std::find_if(std::begin(_task_item_model->_details_ts), std::end(_task_item_model->_details_ts), [](models::M3u8Ts& item) { return item._status == models::M3u8Ts::Status::Downloading; });
+	if (it != std::end(_task_item_model->_details_ts)) {
+		this->RequestAria2Status(it->_aria2_result);
+	}*/
+	BOOST_FOREACH(models::M3u8Ts& item, _task_item_model->_details_ts)
+	{
+		if (item._status == models::M3u8Ts::Status::Downloading) 
+		{
+			std::string jsonRes = this->RequestAria2TellStatus(item);
+			/*error complete
+			"id": "qwer",
+	"jsonrpc": "2.0",
+	"result": {
+		"completedLength": "0",
+		"errorCode": "1",
+		"errorMessage": "Network problem has occurred. cause:No connection could be made because the target machine actively refused it.\r\n",
+		"gid": "ff271475a6a173df",
+		"status": "error",
+		"totalLength": "0"
+	}
+	removeDownloadResult
+			*/
+			Json::Value root;
+			Json::Reader jr;
+			jr.parse(jsonRes, root);
+			std::string result_status = root["result"]["status"].asString();
+			if (result_status == "error" || result_status == "complete") {
+				item.errorCode = root["result"]["errorCode"].asString();
+				item._status = models::M3u8Ts::Status::DownloadComplete;
+				//removeDownloadResult
+			}
+		}
+	}
+	
+	//find 如果正在下载 不足 10个 在发起10 个或余下的
+	auto count_downloading= std::count_if(std::begin(_task_item_model->_details_ts), std::end(_task_item_model->_details_ts), [](models::M3u8Ts& item) { return item._status == models::M3u8Ts::Status::Downloading; });
+	if (count_downloading < 10) {
+		//get 10 saved
+		int saved_tick = 9;
+		BOOST_FOREACH(models::M3u8Ts& item, _task_item_model->_details_ts)
+		{
+			if (item._status == models::M3u8Ts::Status::Saved)
+			{
+				std::string jsonRes = this->RequestAria2AddUri(item);
+				//json parse strResponse result 
+				/*
+				{
+		"id": "qwer1",
+		"jsonrpc": "2.0",
+		"result": "2bc4d00f31295d4a"
+		}
+					*/
+				Json::Value root;
+				Json::Reader jr;
+				jr.parse(jsonRes, root);
+				std::string aria2_result = root["result"].asString();
+				if (!aria2_result.empty()) {
+					item._status = models::M3u8Ts::Status::Downloading;
+					item._aria2_result = aria2_result;
+					//update ts
+					repos::M3u8Repo::UpdateTaskTsStatus(db, item._id, item._aria2_result, item._status);
+				}
+				saved_tick++;
+				if (saved_tick == 10) {
+					break;
+				}
+			}
+		}
+	}
+	return true;
+}
+std::string UCTaskItem::RequestAria2(std::string& cmd) {
+	CURLcode res;
+	CURL* curl = curl_easy_init();
+	if (NULL == curl)
+	{
+		return false;// CURLE_FAILED_INIT;
+	}
+	/*if (m_bDebug)
+	{
+		curl_easy_setopt(curl, CURLOPT_VERBOSE, 1);
+		curl_easy_setopt(curl, CURLOPT_DEBUGFUNCTION, OnDebug);
+	}*/
+	std::string strResponse;
+	struct curl_slist* headers = NULL;
+	headers = curl_slist_append(headers, "Content-Type:application/json;charset=UTF-8");
+	curl_easy_setopt(curl, CURLOPT_HTTPHEADER, headers);
+	curl_easy_setopt(curl, CURLOPT_URL, "http://localhost:6800/jsonrpc");
+	curl_easy_setopt(curl, CURLOPT_POST, 1);
+	curl_easy_setopt(curl, CURLOPT_POSTFIELDS, cmd.c_str());
+	curl_easy_setopt(curl, CURLOPT_POSTFIELDSIZE, cmd.size());//设置上传json串长度,这个设置可以忽略
+	curl_easy_setopt(curl, CURLOPT_READFUNCTION, NULL);
+	curl_easy_setopt(curl, CURLOPT_WRITEFUNCTION, OnWriteData);
+	curl_easy_setopt(curl, CURLOPT_WRITEDATA, (void *)&strResponse);
+	curl_easy_setopt(curl, CURLOPT_NOSIGNAL, 1);
+	curl_easy_setopt(curl, CURLOPT_CONNECTTIMEOUT, 3);
+	curl_easy_setopt(curl, CURLOPT_TIMEOUT, 3);
+	res = curl_easy_perform(curl);
+	curl_slist_free_all(headers); /* free the list again */
+	curl_easy_cleanup(curl);
+
+	return strResponse;
 }
 
 void UCTaskItem::kThreadTaskProcess_InserTask() {

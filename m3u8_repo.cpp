@@ -141,11 +141,18 @@ namespace repos {
 
 		return ret;
 	}
-
+	int M3u8Repo::UpdateTaskTsStatus(ndb::SQLiteDB& db, int64 ts_id, std::string aria2_result, models::M3u8Ts::Status status)
+	{
+		boost::format fmt = boost::format(
+			"update m3u8_ts set status=%1%,aria2_result='%2%'  where id = %3%") % status % aria2_result % ts_id;
+		std::string sqlts = fmt.str();
+		int ret = db.Query(sqlts.data());
+		return 0;
+	}
 	bool M3u8Repo::GetTaskDetails(ndb::SQLiteDB& db, int64 m3u8_task_id, std::list<models::M3u8Ts>& list)
 	{
 		boost::format fmt = boost::format(
-			"select id,m3u8_task_id,aria2_result,status,url,create_time from m3u8_ts where m3u8_task_id = %1% and status = 0") % m3u8_task_id;
+			"select id,m3u8_task_id,aria2_result,status,url,create_time from m3u8_ts where m3u8_task_id = %1%") % m3u8_task_id;
 		std::string sqlts = fmt.str();
 
 		ndb::SQLiteStatement stat;
@@ -176,6 +183,6 @@ namespace repos {
 		stat.Finalize();
 		return true;
 	}
-
+	
 	//////////////////////////////////////////////////////////////
 }

@@ -2,6 +2,8 @@
 #include "basic_form.h"
 #include "uc_task_item.h"
 #include "m3u8_repo.h"
+#include "third_party/jsoncpp/include/json/json.h"
+
 const std::wstring BasicForm::kClassName = L"lym3u8_form";
 
 BasicForm::BasicForm()
@@ -112,6 +114,15 @@ void BasicForm::kThreadTaskProcess_GetAllTask( ) {
 	db_.Close();
 	//Sleep(10000);
 	this->TaskListLoading(false);
+
+	
+	
+	Json::Value root;
+	Json::Reader jr;
+	jr.parse("{\"id\": \"qwer1\",\"jsonrpc\" : \"2.0\",	\"result\" : \"2bc4d00f31295d4a\"}", root);
+	std::string result1 = root["result1"].asString();
+
+
 	nbase::ThreadManager::PostDelayedTask(kThreadTaskProcess, nbase::Bind(&BasicForm::kThreadTaskProcess_DelayTask_ProcessDownload, this)
 		, nbase::TimeDelta::FromMilliseconds(1000 * 3));
 }

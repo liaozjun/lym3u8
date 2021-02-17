@@ -1,5 +1,6 @@
 #pragma once
 #include "m3u8_task.h"
+#include "m3u8_repo.h"
 class UCTaskItem : public ui::ListContainerElement
 {
 public:
@@ -17,11 +18,16 @@ public:
 	} 
 	void ProcessDownloading();
 	void ProcessWaitingForDownload();
+	std::string RequestAria2(std::string& cmd);
+	std::string RequestAria2TellStatus(models::M3u8Ts& ts);
+	std::string RequestAria2AddUri(models::M3u8Ts& ts);
+
 private:
 	bool OnClick(ui::EventArgs* args);
 	void RefreshCtrls();
 	void kThreadTaskProcess_InserTask();
 	void kThreadTaskProcess_InserTaskAndDownload();
+	bool ProcessTsDownload(ndb::SQLiteDB& db);
 private:
 	ui::ListBox* 	list_box_;
 	ui::Label*		label_title_;

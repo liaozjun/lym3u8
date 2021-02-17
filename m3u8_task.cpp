@@ -1,23 +1,7 @@
 #include "pch.h"
 #include "m3u8_task.h"
-
-#include "third_party/curl/include/curl/curl.h"
-#include "third_party/jsoncpp/include/json/json.h"
-
 namespace models {
-	static size_t OnWriteData(void* buffer, size_t size, size_t nmemb, void* lpVoid)
-	{
-		std::string* str = dynamic_cast<std::string*>((std::string *)lpVoid);
-		if (NULL == str || NULL == buffer)
-		{
-			return -1;
-		}
-
-		char* pData = (char*)buffer;
-		str->append(pData, size * nmemb);
-		return nmemb;
-
-	}
+	
 
 	M3u8Task::M3u8Task(std::string title, std::string url, std::string content) {
 		_id = 0;
@@ -95,71 +79,6 @@ namespace models {
 		return true;
 	}
 	
-	void M3u8Task::SendAria2() 
-	{
-		size_t len = _details_ts.size();
-		
-		for (auto it = _details_ts.begin(); it != _details_ts.end(); it++) 
-		{
-			Json::FastWriter writer;
-			Json::Value value;
-			Json::Value array;
-
-			//url
-			Json::Value array1;
-			array1.append(it->_url);
-			array.append(array1);
-			//dir
-			std::string theme_dir = nbase::UTF16ToUTF8(nbase::win32::GetCurrentModuleDirectory());
-			Json::Value parms;
-			parms["dir"] = theme_dir+"m3u8\\" + this->_folder_name;
-			array.append(parms);
-
-			value["jsonrpc"] = "2.0";
-			value["id"] = "qwer";
-			value["method"] = "aria2.addUri";
-			value["params"] = array;
-
-			std::string json_file = writer.write(value);
-
-			CURLcode res;
-			CURL* curl = curl_easy_init();
-			if (NULL == curl)
-			{
-				return;// CURLE_FAILED_INIT;
-			}
-			/*if (m_bDebug)
-			{
-				curl_easy_setopt(curl, CURLOPT_VERBOSE, 1);
-				curl_easy_setopt(curl, CURLOPT_DEBUGFUNCTION, OnDebug);
-			}*/
-			std::string strResponse;
-			struct curl_slist* headers = NULL;
-			headers = curl_slist_append(headers, "Content-Type:application/json;charset=UTF-8");
-			curl_easy_setopt(curl, CURLOPT_HTTPHEADER, headers);
-			curl_easy_setopt(curl, CURLOPT_URL, "http://localhost:6800/jsonrpc");
-			curl_easy_setopt(curl, CURLOPT_POST, 1);
-			curl_easy_setopt(curl, CURLOPT_POSTFIELDS, json_file.c_str());
-			curl_easy_setopt(curl, CURLOPT_POSTFIELDSIZE, json_file.size());//设置上传json串长度,这个设置可以忽略
-			curl_easy_setopt(curl, CURLOPT_READFUNCTION, NULL);
-			curl_easy_setopt(curl, CURLOPT_WRITEFUNCTION, OnWriteData);
-			curl_easy_setopt(curl, CURLOPT_WRITEDATA, (void *)&strResponse);
-			curl_easy_setopt(curl, CURLOPT_NOSIGNAL, 1);
-			curl_easy_setopt(curl, CURLOPT_CONNECTTIMEOUT, 3);
-			curl_easy_setopt(curl, CURLOPT_TIMEOUT, 3);
-			res = curl_easy_perform(curl);
-			curl_slist_free_all(headers); /* free the list again */
-			curl_easy_cleanup(curl);
-			
-			//json parse strResponse result 
-			Json::Value root;
-			Json::Reader jr;
-			jr.parse(strResponse, root);
-			it->_status = models::M3u8Ts::Status::Downloading;
-			//update ts
-
-			break;
-		}
-	}
+ 
 
 }
