@@ -59,5 +59,6 @@ namespace models {
 		std::string _url;
 		int64_t _create_time;
 		std::string	errorCode;
+		std::string errorMessage;
 	};
 }

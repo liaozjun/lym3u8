@@ -49,8 +49,8 @@ void BasicForm::InitWindow()
 	if (!nim_comp::CefManager::GetInstance()->IsEnableOffsetRender()) {
 		cef_control_dev_->SetVisible(false);
 	}
-	//cef_control_->LoadURL(L"https://cn.pornhub.com/view_video.php?viewkey=ph5ddf2ce189a7d");
-	cef_control_->LoadURL(nbase::win32::GetCurrentModuleDirectory() + L"dist/index.html");
+	cef_control_->LoadURL(L"http://www.yongjiuzy1.com/?m=vod-play-id-33050-src-1-num-65.html");
+	//cef_control_->LoadURL(nbase::win32::GetCurrentModuleDirectory() + L"dist/index.html");
 	list_box_ = dynamic_cast<ui::ListBox*>(FindControl(L"list"));
 	task_loading_ = dynamic_cast<ui::HBox*>(FindControl(L"task_loading"));
 
@@ -99,6 +99,69 @@ LRESULT BasicForm::OnClose(UINT uMsg, WPARAM wParam, LPARAM lParam, BOOL& bHandl
 	return __super::OnClose(uMsg, wParam, lParam, bHandled);
 }
 //////////////////////////////////////////////////////////////////////////////////////////////////////////
+#define MY_PIPE_BUFFER_SIZE 1024
+void StartProcess()
+{
+	//初始化管道
+	HANDLE hPipeRead;
+	HANDLE hPipeWrite;
+	SECURITY_ATTRIBUTES saOutPipe;
+	::ZeroMemory(&saOutPipe, sizeof(saOutPipe));
+	saOutPipe.nLength = sizeof(SECURITY_ATTRIBUTES);
+	saOutPipe.lpSecurityDescriptor = NULL;
+	saOutPipe.bInheritHandle = TRUE;
+	if (CreatePipe(&hPipeRead, &hPipeWrite, &saOutPipe, MY_PIPE_BUFFER_SIZE))
+	{
+		PROCESS_INFORMATION processInfo;
+		::ZeroMemory(&processInfo, sizeof(processInfo));
+		STARTUPINFO startupInfo;
+		::ZeroMemory(&startupInfo, sizeof(startupInfo));
+		startupInfo.cb = sizeof(STARTUPINFO);
+		startupInfo.dwFlags = STARTF_USESTDHANDLES | STARTF_USESHOWWINDOW;
+		startupInfo.hStdOutput = hPipeWrite;
+		startupInfo.hStdError = hPipeWrite;
+		startupInfo.wShowWindow = SW_SHOW;
+		std::wstring cmdline = _T("E:\\NimDuilib\\lym3u8\\Debug\\static\\aria2c.exe --conf-path=E:\\NimDuilib\\lym3u8\\Debug\\static\\aria2.conf --check-certificate=false");
+
+		if (::CreateProcessW(NULL, (LPWSTR)(cmdline.c_str()),
+			NULL,  // process security
+			NULL,  // thread security
+			TRUE,  //inheritance
+			0,     //no startup flags
+			NULL,  // no special environment
+			NULL,  //default startup directory
+			&startupInfo,
+			&processInfo))
+		{
+			if (WAIT_TIMEOUT != WaitForSingleObject(processInfo.hProcess, 3000))
+			{
+				DWORD dwReadLen = 0;
+				DWORD dwStdLen = 0;
+				if (PeekNamedPipe(hPipeRead, NULL, 0, NULL, &dwReadLen, NULL) && dwReadLen > 0)
+				{
+					char szPipeOut[MY_PIPE_BUFFER_SIZE];
+					::ZeroMemory(szPipeOut, sizeof(szPipeOut));
+					if (ReadFile(hPipeRead, szPipeOut, dwReadLen, &dwStdLen, NULL))
+					{
+						// 输出值
+						int k = 0;
+					}
+					int a = 1;
+				}
+			}
+		}
+		if (processInfo.hProcess)
+		{
+			CloseHandle(processInfo.hProcess);
+		}
+		if (processInfo.hThread)
+		{
+			CloseHandle(processInfo.hThread);
+		}
+	}
+	CloseHandle(hPipeRead);
+	CloseHandle(hPipeWrite);
+}
 void BasicForm::kThreadTaskProcess_GetAllTask( ) {
 	ndb::SQLiteDB db_;
 	bool result = db_.Open("./lygg", "", ndb::SQLiteDB::modeReadWrite | ndb::SQLiteDB::modeCreate | ndb::SQLiteDB::modeSerialized);
@@ -113,20 +176,52 @@ void BasicForm::kThreadTaskProcess_GetAllTask( ) {
 	}
 	db_.Close();
 	//Sleep(10000);
-	this->TaskListLoading(false);
-
-	
+	this->TaskListLoading(false);	
 	
 	Json::Value root;
 	Json::Reader jr;
 	jr.parse("{\"id\": \"qwer1\",\"jsonrpc\" : \"2.0\",	\"result\" : \"2bc4d00f31295d4a\"}", root);
 	std::string result1 = root["result1"].asString();
-
+	//StartProcess();
+	this->RunAria2();
 
 	nbase::ThreadManager::PostDelayedTask(kThreadTaskProcess, nbase::Bind(&BasicForm::kThreadTaskProcess_DelayTask_ProcessDownload, this)
 		, nbase::TimeDelta::FromMilliseconds(1000 * 3));
 }
+void BasicForm::RunAria2() {
+	std::wstring theme_dir = nbase::win32::GetCurrentModuleDirectory();
+	DWORD processId = GetCurrentProcessId();//当前进程id
+	//--stop-with-process=
+	std::wstring pid = nbase::Uint64ToString16(processId);
+	std::wstring cmdline = nbase::StringPrintf(L"%sstatic\\aria2c.exe --conf-path=%sstatic\\aria2.conf --check-certificate=false --stop-with-process=%s",
+		theme_dir.data(), theme_dir.data(), pid.data()); 
+	STARTUPINFO si;
+	PROCESS_INFORMATION pi;
+	ZeroMemory(&si, sizeof(si));
+	si.cb = sizeof(si);
+	//隐藏掉可能出现的cmd命令窗口
+	si.dwFlags = STARTF_USESHOWWINDOW;
+	si.wShowWindow = SW_SHOW;//SW_HIDE
+	ZeroMemory(&pi, sizeof(pi));
+	BOOL bRet = ::CreateProcess(
+		NULL,//启动程序路径名 
+		(LPWSTR)(cmdline.c_str()), //参数（当exeName为NULL时，可将命令放入参数前） 
+		NULL, //使用默认进程安全属性 
+		NULL, //使用默认线程安全属性 
+		FALSE,//句柄不继承 
+		0, //使用正常优先级 
+		NULL, //使用父进程的环境变量 
+		NULL, //指定工作目录 
+		&si, //子进程主窗口如何显示 
+		&pi); //用于存放新进程的返回信息 
 
+		//NULL, (LPWSTR)(cmdline.c_str()), NULL, NULL, FALSE, NORMAL_PRIORITY_CLASS, NULL, NULL, &si, &pi);
+	DWORD ecode = 0;
+	if (bRet == 0)
+	{
+		ecode = GetLastError();
+	}
+}
 void BasicForm::kThreadTaskProcess_DelayTask_ProcessDownload() 
 {
 	LOG(INFO) << "kThreadTaskProcess_DelayTask_ProcessDownload";
@@ -153,5 +248,5 @@ void BasicForm::kThreadTaskProcess_DelayTask_ProcessDownload()
 	}
 
 	nbase::ThreadManager::PostDelayedTask(kThreadTaskProcess, nbase::Bind(&BasicForm::kThreadTaskProcess_DelayTask_ProcessDownload, this)
-		, nbase::TimeDelta::FromMilliseconds(1000 * 3));
+		, nbase::TimeDelta::FromMilliseconds(1000 * 5));
 }

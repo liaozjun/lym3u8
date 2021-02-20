@@ -149,6 +149,14 @@ namespace repos {
 		int ret = db.Query(sqlts.data());
 		return 0;
 	}
+	int M3u8Repo::UpdateTaskTsStatus(ndb::SQLiteDB& db, int64 ts_id, models::M3u8Ts::Status status, std::string errorCode,std::string errorMessage)
+	{
+		boost::format fmt = boost::format(
+			"update m3u8_ts set status=%1%,errorCode='%2%',errorMessage='%3%' where id = %4%") % status % errorCode %errorMessage%ts_id;
+		std::string sqlts = fmt.str();
+		int ret = db.Query(sqlts.data());
+		return 0;
+	}
 	bool M3u8Repo::GetTaskDetails(ndb::SQLiteDB& db, int64 m3u8_task_id, std::list<models::M3u8Ts>& list)
 	{
 		boost::format fmt = boost::format(

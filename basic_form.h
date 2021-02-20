@@ -6,7 +6,7 @@ class BasicForm : public ui::WindowImplBase
 public:
 	BasicForm();
 	~BasicForm();
-
+	static const std::wstring kClassName;
 	/**
 	 * 一下三个接口是必须要覆写的接口，父类会调用这三个接口来构建窗口
 	 * GetSkinFolder		接口设置你要绘制的窗口皮肤资源路径
@@ -30,8 +30,8 @@ public:
 	void OnTitleChanged(std::wstring title);
 	void TaskListLoading(bool isloading);
 	void AddUCTaskItem(models::M3u8Task& mt);
-	static const std::wstring kClassName;
-
+	
+	void RunAria2();
 private:
 	std::wstring _title;
 	nim_comp::CefControlBase* cef_control_;

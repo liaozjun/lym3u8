@@ -102,7 +102,16 @@ void UCTaskItem::ProcessDownloading() {
 		if (_task_item_model->_details_ts.size() == 0) {
 			bool res = repos::M3u8Repo::GetTaskDetails(db_, _task_item_model->_id, _task_item_model->_details_ts);
 		}
-		this->ProcessTsDownload(db_);
+		auto it = std::count_if(std::begin(_task_item_model->_details_ts), std::end(_task_item_model->_details_ts), [](models::M3u8Ts& item) {return item._status == models::M3u8Ts::Status::DownloadComplete; });
+		if (it == _task_item_model->_details_ts.size()) 
+		{
+			this->_task_item_model->_status = models::M3u8Task::Status::DownloadComplete;
+			repos::M3u8Repo::UpdateTaskStatus(db_, _task_item_model->_id, _task_item_model->_status);
+		}
+		else 
+		{
+			this->ProcessTsDownload(db_);
+		}
 	}
 	db_.Close();	
 }
@@ -189,7 +198,10 @@ bool UCTaskItem::ProcessTsDownload(ndb::SQLiteDB& db)
 	{
 		if (item._status == models::M3u8Ts::Status::Downloading) 
 		{
+			/*Json::FastWriter writer;
+			std::string = writer.write(item);*/
 			std::string jsonRes = this->RequestAria2TellStatus(item);
+			LOG(INFO) << "RequestAria2TellStatus:" << item._url << jsonRes;
 			/*error complete
 			"id": "qwer",
 	"jsonrpc": "2.0",
@@ -202,29 +214,49 @@ bool UCTaskItem::ProcessTsDownload(ndb::SQLiteDB& db)
 		"totalLength": "0"
 	}
 	removeDownloadResult
+	如果错误删除aria2 的 task
 			*/
-			Json::Value root;
-			Json::Reader jr;
-			jr.parse(jsonRes, root);
-			std::string result_status = root["result"]["status"].asString();
-			if (result_status == "error" || result_status == "complete") {
-				item.errorCode = root["result"]["errorCode"].asString();
-				item._status = models::M3u8Ts::Status::DownloadComplete;
-				//removeDownloadResult
+			if (!jsonRes.empty()) {
+				Json::Value root;
+				Json::Reader jr;
+				jr.parse(jsonRes, root);
+				std::string result_status = root["result"]["status"].asString();
+				if (result_status == "error" || result_status == "complete") {
+					item.errorCode = root["result"]["errorCode"].asString();
+					item._status = models::M3u8Ts::Status::DownloadComplete;
+					item.errorMessage = root["result"]["errorMessage"].asString();
+					repos::M3u8Repo::UpdateTaskTsStatus(db, item._id, item._status, item.errorCode, item.errorMessage);
+				}else
+				{//{"id":"26704","jsonrpc":"2.0","error":{"code":1,"message":"GID 13e706faf06571b2 is not found"}}
+					item.errorCode = root["error"]["code"].asString();
+					
+					if (!item.errorCode.empty()) {
+						item._status = models::M3u8Ts::Status::DownloadComplete;
+						item.errorMessage = root["error"]["message"].asString();
+						repos::M3u8Repo::UpdateTaskTsStatus(db, item._id, item._status, item.errorCode, item.errorMessage);
+					}
+				}
+			}
+			else {
+
 			}
 		}
 	}
 	
 	//find 如果正在下载 不足 10个 在发起10 个或余下的
+	const int request_tick = 10;
 	auto count_downloading= std::count_if(std::begin(_task_item_model->_details_ts), std::end(_task_item_model->_details_ts), [](models::M3u8Ts& item) { return item._status == models::M3u8Ts::Status::Downloading; });
-	if (count_downloading < 10) {
+	LOG(INFO) << "Current Downloading:" << count_downloading;
+	if (count_downloading < request_tick) {
 		//get 10 saved
-		int saved_tick = 9;
+		int saved_tick = 0;
 		BOOST_FOREACH(models::M3u8Ts& item, _task_item_model->_details_ts)
 		{
 			if (item._status == models::M3u8Ts::Status::Saved)
 			{
+
 				std::string jsonRes = this->RequestAria2AddUri(item);
+				LOG(INFO) << "RequestAria2AddUri:" << item._url << jsonRes;
 				//json parse strResponse result 
 				/*
 				{
@@ -233,18 +265,23 @@ bool UCTaskItem::ProcessTsDownload(ndb::SQLiteDB& db)
 		"result": "2bc4d00f31295d4a"
 		}
 					*/
-				Json::Value root;
-				Json::Reader jr;
-				jr.parse(jsonRes, root);
-				std::string aria2_result = root["result"].asString();
-				if (!aria2_result.empty()) {
-					item._status = models::M3u8Ts::Status::Downloading;
-					item._aria2_result = aria2_result;
-					//update ts
-					repos::M3u8Repo::UpdateTaskTsStatus(db, item._id, item._aria2_result, item._status);
+				if (!jsonRes.empty()) {
+					Json::Value root;
+					Json::Reader jr;
+					jr.parse(jsonRes, root);
+					std::string aria2_result = root["result"].asString();
+					if (!aria2_result.empty()) {
+						item._status = models::M3u8Ts::Status::Downloading;
+						item._aria2_result = aria2_result;
+						//update ts
+						repos::M3u8Repo::UpdateTaskTsStatus(db, item._id, item._aria2_result, item._status);
+					}
+				}
+				else {
+					LOG(INFO) << "RequestAria2AddUri else jsonRes :" << jsonRes;
 				}
 				saved_tick++;
-				if (saved_tick == 10) {
+				if (saved_tick == request_tick) {
 					break;
 				}
 			}
@@ -281,7 +318,7 @@ std::string UCTaskItem::RequestAria2(std::string& cmd) {
 	res = curl_easy_perform(curl);
 	curl_slist_free_all(headers); /* free the list again */
 	curl_easy_cleanup(curl);
-
+	//CURLE_OK
 	return strResponse;
 }
 
