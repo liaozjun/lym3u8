@@ -32,11 +32,14 @@ public:
 	void AddUCTaskItem(models::M3u8Task& mt);
 	
 	void RunAria2();
+	void OnClickBubble(std::string action, models::M3u8Task& task);
+	void OnLoadEnd(int httpStatusCode);
 private:
 	std::wstring _title;
 	nim_comp::CefControlBase* cef_control_;
 	nim_comp::CefControlBase* cef_control_dev_;
 	ui::ListBox*	 list_box_;
+	std::string cur_url;
 	ui::HBox* task_loading_;
 private: 
 	std::unique_ptr<HttpServerRunner> http_server_runner_;

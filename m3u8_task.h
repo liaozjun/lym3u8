@@ -34,7 +34,11 @@ namespace models {
 		std::string 	_content;
 		int64_t create_time;
 		int64_t end_time;
-		 
+		
+		int count;
+		int count_downloading;
+		int count_complete;
+		int count_error;
 
 		std::list<M3u8Ts> _details_ts;
 	};

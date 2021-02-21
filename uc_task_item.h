@@ -6,12 +6,12 @@ class UCTaskItem : public ui::ListContainerElement
 public:
 	UCTaskItem();
 	~UCTaskItem();
-
+	
 	// 提供外部调用来初始化 item 数据
-	void InitSubControls(models::M3u8Task& taskItemDto);
-	//std::string GetTitle() {
-	//	return _task_item_model->_title;// get_title();
-	//}
+	void InitSubControls(models::M3u8Task& taskItemDto,std::function<void (std::string, models::M3u8Task&)> OnClickBubble);
+	std::string GetUrl() {
+		return _task_item_model->_url;
+	}
 	//void InserTask();
 	models::M3u8Task::Status GetTaskStatus() {
 		return _task_item_model->_status;
@@ -23,6 +23,7 @@ public:
 	std::string RequestAria2AddUri(models::M3u8Ts& ts);
 
 private:
+	std::function<void(std::string, models::M3u8Task&) > _OnClickBubble;
 	bool OnClick(ui::EventArgs* args);
 	void RefreshCtrls();
 	void kThreadTaskProcess_InserTask();

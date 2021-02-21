@@ -33,11 +33,19 @@ namespace repos {
 		dt.Free();
 		return rowcount;
 	}
-	bool M3u8Repo::QueryAll(ndb::SQLiteDB& db, std::list<models::M3u8Task>& list) {
-		std::string queryExist = "select id,title,url,status,folder_name,content,create_time,end_time from m3u8_task";
+	bool M3u8Repo::QueryAll(ndb::SQLiteDB& db, std::list<models::M3u8Task>& list) 
+	{
+		boost::format fmtd = boost::format("select t.id,t.title,t.url,t.status,t.folder_name,t.content,t.create_time,t.end_time,\n"
+			"(select count(*) from m3u8_ts ts where ts.m3u8_task_id = t.id) as count,\n"
+			"(select count(*) from m3u8_ts ts where ts.m3u8_task_id = t.id and ts.status = %1%) as count_downloading,\n"
+			"(select count(*) from m3u8_ts ts where ts.m3u8_task_id = t.id and ts.status = %2%) as count_complete,\n"
+			"(select count(*) from m3u8_ts ts where ts.m3u8_task_id = t.id and ts.status = %2% and ts.errorCode != 0 and ts.errorCode is not null) as count_error\n"
+			"from m3u8_task t") % models::M3u8Ts::Downloading%models::M3u8Ts::DownloadComplete;
+		std::string queryExist = fmtd.str();
 		ndb::SQLiteStatement stat;
 		int ret = db.Query(stat, queryExist.data());
 		if (!stat.IsValid()) {
+			stat.Finalize();
 			return false;
 		}
 		while (stat.NextRow() != SQLITE_DONE) {
@@ -58,6 +66,10 @@ namespace repos {
 					nbase::StringToInt64(et, &(t.end_time));
 				}
 				t.LoadDbInit(id, title, url, (models::M3u8Task::Status)status, folder_name, content,t.create_time,t.end_time);
+				t.count = stat.GetIntField(8);
+				t.count_downloading = stat.GetIntField(9);
+				t.count_complete = stat.GetIntField(10);
+				t.count_error = stat.GetIntField(11);
 				list.push_back(t);
 			}
 			catch (...) {
@@ -166,6 +178,7 @@ namespace repos {
 		ndb::SQLiteStatement stat;
 		int ret = db.Query(stat, sqlts.data());
 		if (!stat.IsValid()) {
+			stat.Finalize();
 			return false;
 		}
 		while (stat.NextRow() != SQLITE_DONE) {
@@ -191,6 +204,41 @@ namespace repos {
 		stat.Finalize();
 		return true;
 	}
-	
+	bool M3u8Repo::GetM3u8Task(ndb::SQLiteDB& db, std::string url, models::M3u8Task& task)
+	{ 
+		boost::format fmt = boost::format(
+			"select id, title, url, status, folder_name, content, create_time, end_time from m3u8_task where url = '%1%'") % url;
+		std::string sql = fmt.str();
+		ndb::SQLiteStatement stat;
+		int ret = db.Query(stat, sql.data());
+		if (!stat.IsValid()) {
+			stat.Finalize();
+			return false;
+		}
+		while (stat.NextRow() != SQLITE_DONE) {
+			try {
+				int64 id = stat.GetInt64Field(0);
+				std::string title = stat.GetTextField(1);
+				std::string url = stat.GetTextField(2);
+				int64 status = stat.GetInt64Field(3);
+				std::string folder_name = stat.GetTextField(4);
+				std::string 	content = stat.GetTextField(5);
+				const char* ct = stat.GetTextField(6);
+				if (ct != NULL) {
+					nbase::StringToInt64(ct, &(task.create_time));
+				}
+				const char* et = stat.GetTextField(7);
+				if (et != NULL) {
+					nbase::StringToInt64(et, &(task.end_time));
+				}
+				task.LoadDbInit(id, title, url, (models::M3u8Task::Status)status, folder_name, content, task.create_time, task.end_time);
+			}
+			catch (...) {
+				LOG(INFO) << "QueryAll";
+			}
+		}
+		stat.Finalize();
+		return true;
+	}
 	//////////////////////////////////////////////////////////////
 }

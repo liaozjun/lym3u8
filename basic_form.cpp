@@ -3,7 +3,7 @@
 #include "uc_task_item.h"
 #include "m3u8_repo.h"
 #include "third_party/jsoncpp/include/json/json.h"
-
+#include "boost/format.hpp"
 const std::wstring BasicForm::kClassName = L"lym3u8_form";
 
 BasicForm::BasicForm()
@@ -49,13 +49,14 @@ void BasicForm::InitWindow()
 	if (!nim_comp::CefManager::GetInstance()->IsEnableOffsetRender()) {
 		cef_control_dev_->SetVisible(false);
 	}
-	cef_control_->LoadURL(L"http://www.yongjiuzy1.com/?m=vod-play-id-33050-src-1-num-65.html");
-	//cef_control_->LoadURL(nbase::win32::GetCurrentModuleDirectory() + L"dist/index.html");
+	//cef_control_->LoadURL(L"http://www.yongjiuzy1.com/?m=vod-play-id-2320-src-1-num-158.html");
+	cef_control_->LoadURL(nbase::win32::GetCurrentModuleDirectory() + L"dist/index.html");
 	list_box_ = dynamic_cast<ui::ListBox*>(FindControl(L"list"));
 	task_loading_ = dynamic_cast<ui::HBox*>(FindControl(L"task_loading"));
 
 	cef_control_->AttachTitleChange(nbase::Bind(&BasicForm::OnTitleChanged, this, std::placeholders::_1));
 	cef_control_->AttachM3u8LoadComplete(nbase::Bind(&BasicForm::M3u8LoadComplete, this,std::placeholders::_1,std::placeholders::_2));
+	cef_control_->AttachLoadEnd(nbase::Bind(&BasicForm::OnLoadEnd, this, std::placeholders::_1));
 
 	/*this->task_loading_->SetVisible(false);
 	this->list_box_->SetVisible(true);
@@ -66,17 +67,36 @@ void BasicForm::InitWindow()
 	this->TaskListLoading(true);
 	nbase::ThreadManager::PostTask(kThreadTaskProcess, nbase::Bind(&BasicForm::kThreadTaskProcess_GetAllTask,this));
 	//nbase::ThreadManager::PostTask(kThreadTaskProcess, nbase::Bind(&TaskProcessRunner::testrun, task_process_runner_.get()));	
-//	nbase::ThreadManager::PostTask(kThreadHttpServer, nbase::Bind(&HttpServerRunner::RunMongooseLoop, http_server_runner_.get()));
+	//nbase::ThreadManager::PostTask(kThreadHttpServer, nbase::Bind(&HttpServerRunner::RunMongooseLoop, http_server_runner_.get()));
 }
 void BasicForm::OnTitleChanged(std::wstring title)
 {
 	_title = title;
 }
 
+void BasicForm::OnClickBubble(std::string action, models::M3u8Task& task)
+{
+	if (action == "btn_play") {
+		cur_url = "http://localhost:8099/" + task._folder_name + "/index.m3u8";
+		cef_control_->LoadURL(nbase::win32::GetCurrentModuleDirectory() + L"dist/index.html");
+	}
+}
+void BasicForm::OnLoadEnd(int httpStatusCode)
+{ 
+	cef_control_->RegisterCppFunc(L"GetCurrPalyUrl", ToWeakCallback([this](const std::string& params, nim_comp::ReportResultFunction callback) {
+		//nim_comp::Toast::ShowToast(nbase::UTF8ToUTF16(params), 3000, GetHWND());
+		//callback(true, R"({ "message": "Success." })");
+		std::string url = cur_url;
+		boost::format fmt = boost::format(R"({"url":"%1%"})") % url;
+		std::string result = fmt.str();
+		callback(true, result);
+	}));
+}
+
 void BasicForm::AddUCTaskItem(models::M3u8Task& mt) {
 	UCTaskItem* item = new UCTaskItem;
 	ui::GlobalManager::FillBoxWithCache(item, L"basic/task_item.xml");
-	item->InitSubControls(mt);
+	item->InitSubControls(mt, std::bind(&BasicForm::OnClickBubble, this, std::placeholders::_1,std::placeholders::_2));
 	list_box_->AddAt(item, 0);
 }
 
@@ -84,11 +104,29 @@ void BasicForm::TaskListLoading(bool isloading) {
 	this->task_loading_->SetVisible(isloading);
 	this->list_box_->SetVisible(!isloading);
 }
-
+数据库用全路径
+查看 CefResponseFilter 怎么写
 void BasicForm::M3u8LoadComplete(std::string url, std::string json_parms) 
-{
-	models::M3u8Task m(nbase::UTF16ToUTF8(_title), url, json_parms);
-	this->AddUCTaskItem(m);
+{	
+	auto it = url.find("localhost");
+	if (it != url.npos) {
+		return;
+	}
+	ndb::SQLiteDB db_;
+	bool result = db_.Open("./lygg", "", ndb::SQLiteDB::modeReadWrite | ndb::SQLiteDB::modeCreate | ndb::SQLiteDB::modeSerialized);
+	if (result)
+	{
+		models::M3u8Task task;
+		bool f = repos::M3u8Repo::GetM3u8Task(db_, url, task);
+		if (task._id == 0) {
+			models::M3u8Task m(nbase::UTF16ToUTF8(_title), url, json_parms);
+			this->AddUCTaskItem(m);
+		}
+		else {
+			nim_comp::Toast::ShowToast(L"该URL已存在", 3000, GetHWND());
+		}
+	}
+	db_.Close();
 } 
 
 LRESULT BasicForm::OnClose(UINT uMsg, WPARAM wParam, LPARAM lParam, BOOL& bHandled)
@@ -178,15 +216,14 @@ void BasicForm::kThreadTaskProcess_GetAllTask( ) {
 	//Sleep(10000);
 	this->TaskListLoading(false);	
 	
-	Json::Value root;
+	/*Json::Value root;
 	Json::Reader jr;
 	jr.parse("{\"id\": \"qwer1\",\"jsonrpc\" : \"2.0\",	\"result\" : \"2bc4d00f31295d4a\"}", root);
-	std::string result1 = root["result1"].asString();
+	std::string result1 = root["result1"].asString();*/
 	//StartProcess();
 	this->RunAria2();
 
-	nbase::ThreadManager::PostDelayedTask(kThreadTaskProcess, nbase::Bind(&BasicForm::kThreadTaskProcess_DelayTask_ProcessDownload, this)
-		, nbase::TimeDelta::FromMilliseconds(1000 * 3));
+	//nbase::ThreadManager::PostDelayedTask(kThreadTaskProcess, nbase::Bind(&BasicForm::kThreadTaskProcess_DelayTask_ProcessDownload, this), nbase::TimeDelta::FromMilliseconds(1000 * 3));
 }
 void BasicForm::RunAria2() {
 	std::wstring theme_dir = nbase::win32::GetCurrentModuleDirectory();

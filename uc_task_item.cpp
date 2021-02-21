@@ -1,9 +1,9 @@
 #include "pch.h"
 #include "uc_task_item.h"
-
+#include <boost/format.hpp>
 #include "third_party/curl/include/curl/curl.h"
 #include "third_party/jsoncpp/include/json/json.h"
-#include "../boost/foreach.hpp"
+#include <boost/foreach.hpp>
 UCTaskItem::UCTaskItem()
 {
 	
@@ -14,8 +14,9 @@ UCTaskItem::~UCTaskItem()
 {
 }
 
-void UCTaskItem::InitSubControls(models::M3u8Task& taskItemModel)
+void UCTaskItem::InitSubControls(models::M3u8Task& taskItemModel, std::function<void(std::string, models::M3u8Task&)> OnClickBubble)
 {
+	_OnClickBubble = OnClickBubble;
 	_task_item_model = std::make_unique<models::M3u8Task>();
 	_task_item_model->_id = taskItemModel._id;
 	_task_item_model->_url = taskItemModel._url;// set_request_url(taskItemModel.get_request_url());
@@ -23,12 +24,20 @@ void UCTaskItem::InitSubControls(models::M3u8Task& taskItemModel)
 	_task_item_model->_status = taskItemModel._status;
 	_task_item_model->_folder_name = taskItemModel._folder_name;
 	_task_item_model->_content = taskItemModel._content;// set_context(taskItemModel.get_context());
+	_task_item_model->count = taskItemModel.count;
+	_task_item_model->count_complete = taskItemModel.count_complete;
+	_task_item_model->count_downloading = taskItemModel.count_downloading;
+	_task_item_model->count_error = taskItemModel.count_error;
 
 	// 查找 Item 下的控件	 
 	label_title_ = dynamic_cast<ui::Label*>(FindSubControl(L"label_title"));
 	label_progress = dynamic_cast<ui::Label*>(FindSubControl(L"label_progress"));
 	label_title_->SetText(nbase::UTF8ToUTF16(_task_item_model->_title));// get_title()));
-	label_progress->SetText(L"[0/10]");
+
+	boost::format fmt = boost::format("[%1%]/[%2%]/[%3%]/[%4%]")% _task_item_model->count%_task_item_model->count_complete%_task_item_model->count_error%_task_item_model->count_downloading;
+	std::string info = fmt.str();
+	label_progress->SetText(nbase::UTF8ToUTF16(info));
+
 	// 绑定删除任务处理函数
 	btn_download_save = dynamic_cast<ui::Button*>(FindSubControl(L"btn_download_save"));
 	btn_save = dynamic_cast<ui::Button*>(FindSubControl(L"btn_save"));
@@ -57,6 +66,9 @@ void UCTaskItem::RefreshCtrls() {
 		btn_download_save->SetState(ui::ControlStateType::kControlStateDisabled);
 		this->Invalidate();
 	}
+	boost::format fmt = boost::format("[%1%]/[%2%]/[%3%]/[%4%]") % _task_item_model->count%_task_item_model->count_complete%_task_item_model->count_error%_task_item_model->count_downloading;
+	std::string info = fmt.str();
+	label_progress->SetText(nbase::UTF8ToUTF16(info));
 }
 bool UCTaskItem::OnClick(ui::EventArgs* args)
 {
@@ -70,7 +82,7 @@ bool UCTaskItem::OnClick(ui::EventArgs* args)
 		nbase::ThreadManager::PostTask(kThreadTaskProcess, nbase::Bind(&UCTaskItem::kThreadTaskProcess_InserTask, this));
 	}
 	else if (btnName == L"btn_play") {
-
+		this->_OnClickBubble(nbase::UTF16ToUTF8(btnName),*(_task_item_model.get()));
 	}
 	else if (btnName == L"btn_edit") {
 
@@ -112,8 +124,24 @@ void UCTaskItem::ProcessDownloading() {
 		{
 			this->ProcessTsDownload(db_);
 		}
+		//完成
+		auto count_complete = std::count_if(std::begin(_task_item_model->_details_ts), std::end(_task_item_model->_details_ts), [](models::M3u8Ts& item) {
+			return item._status == models::M3u8Ts::Status::DownloadComplete;
+		});
+		_task_item_model->count_complete = count_complete;
+		//错误
+		auto count_error = std::count_if(std::begin(_task_item_model->_details_ts), std::end(_task_item_model->_details_ts), [](models::M3u8Ts& item) {
+			return item._status == models::M3u8Ts::Status::DownloadComplete && item.errorCode != "0" && !item.errorCode.empty();
+			});
+		_task_item_model->count_error = count_error;
+		//下载
+		auto count_downloading = std::count_if(std::begin(_task_item_model->_details_ts), std::end(_task_item_model->_details_ts), [](models::M3u8Ts& item) {
+			return item._status == models::M3u8Ts::Status::Downloading;
+			});
+		_task_item_model->count_downloading = count_downloading;
 	}
 	db_.Close();	
+	RefreshCtrls();
 }
 
 void UCTaskItem::ProcessWaitingForDownload() {
@@ -245,7 +273,8 @@ bool UCTaskItem::ProcessTsDownload(ndb::SQLiteDB& db)
 	
 	//find 如果正在下载 不足 10个 在发起10 个或余下的
 	const int request_tick = 10;
-	auto count_downloading= std::count_if(std::begin(_task_item_model->_details_ts), std::end(_task_item_model->_details_ts), [](models::M3u8Ts& item) { return item._status == models::M3u8Ts::Status::Downloading; });
+	auto count_downloading= std::count_if(std::begin(_task_item_model->_details_ts), std::end(_task_item_model->_details_ts), [](models::M3u8Ts& item)
+		{ return item._status == models::M3u8Ts::Status::Downloading; });
 	LOG(INFO) << "Current Downloading:" << count_downloading;
 	if (count_downloading < request_tick) {
 		//get 10 saved
