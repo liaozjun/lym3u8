@@ -3,16 +3,13 @@
 #include "boost/format.hpp"
 #include <objbase.h>
 namespace repos {
-	/*
-	ndb::SQLiteDB db_;
-	bool result = db_.Open("./lygg", "", ndb::SQLiteDB::modeReadWrite | ndb::SQLiteDB::modeCreate | ndb::SQLiteDB::modeSerialized);
-	if (result)
-	{
-		 
-	}
-	db_.Close();
-	*/
+	
 	///////////////////////////////////////////////////////////////
+	void M3u8Repo::GetDbInfo(std::string& dbPath, std::string& pwd) {
+		std::string curpath = nbase::UTF16ToUTF8(nbase::win32::GetCurrentModuleDirectory());
+		dbPath = curpath + "lygg";
+		pwd = "";
+	}
 	int M3u8Repo::Delete(ndb::SQLiteDB& db, int64 m3u8_task_id)
 	{
 		boost::format fmt = boost::format("delete * from m3u8_task where id = %d") % m3u8_task_id;

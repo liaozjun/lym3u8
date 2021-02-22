@@ -34,6 +34,9 @@ public:
 	void RunAria2();
 	void OnClickBubble(std::string action, models::M3u8Task& task);
 	void OnLoadEnd(int httpStatusCode);
+	bool OnClick(ui::EventArgs* args);
+	bool EditUrlReturn(ui::EventArgs* args);
+	void Aria2Conf();
 private:
 	std::wstring _title;
 	nim_comp::CefControlBase* cef_control_;
@@ -41,6 +44,10 @@ private:
 	ui::ListBox*	 list_box_;
 	std::string cur_url;
 	ui::HBox* task_loading_;
+	ui::RichEdit* edit_url;
+	ui::Button* btn_navigate;
+	ui::Button* btn_refresh;
+	ui::Button* btn_home;
 private: 
 	std::unique_ptr<HttpServerRunner> http_server_runner_;
 private:

@@ -21,7 +21,9 @@ public:
 	std::string RequestAria2(std::string& cmd);
 	std::string RequestAria2TellStatus(models::M3u8Ts& ts);
 	std::string RequestAria2AddUri(models::M3u8Ts& ts);
-
+	bool equalUrl(std::string url) {
+		return _task_item_model->_url == url;
+	}
 private:
 	std::function<void(std::string, models::M3u8Task&) > _OnClickBubble;
 	bool OnClick(ui::EventArgs* args);

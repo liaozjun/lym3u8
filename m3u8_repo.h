@@ -5,6 +5,7 @@ namespace repos {
 	class M3u8Repo
 	{
 	public:
+		static void GetDbInfo(std::string& dbPath,std::string& pwd);
 		static int GetCountBy(ndb::SQLiteDB& db, std::string title);
 		static int Insert(ndb::SQLiteDB& db, models::M3u8Task& task);
 		static bool QueryAll(ndb::SQLiteDB& db, std::list<models::M3u8Task>& list);

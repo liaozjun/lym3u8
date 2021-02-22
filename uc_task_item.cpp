@@ -107,8 +107,11 @@ static size_t OnWriteData(void* buffer, size_t size, size_t nmemb, void* lpVoid)
 
 }
 void UCTaskItem::ProcessDownloading() {
+	std::string dbpath;
+	std::string pwd;
+	repos::M3u8Repo::GetDbInfo(dbpath,pwd);
 	ndb::SQLiteDB db_;
-	bool result = db_.Open("./lygg", "", ndb::SQLiteDB::modeReadWrite | ndb::SQLiteDB::modeCreate | ndb::SQLiteDB::modeSerialized);
+	bool result = db_.Open(dbpath.data(), pwd, ndb::SQLiteDB::modeReadWrite | ndb::SQLiteDB::modeCreate | ndb::SQLiteDB::modeSerialized);
 	if (result)
 	{
 		if (_task_item_model->_details_ts.size() == 0) {
@@ -146,9 +149,11 @@ void UCTaskItem::ProcessDownloading() {
 
 void UCTaskItem::ProcessWaitingForDownload() {
 	_task_item_model->_details_ts.clear();
-
+	std::string dbpath;
+	std::string pwd;
+	repos::M3u8Repo::GetDbInfo(dbpath, pwd);
 	ndb::SQLiteDB db_;
-	bool result = db_.Open("./lygg", "", ndb::SQLiteDB::modeReadWrite | ndb::SQLiteDB::modeCreate | ndb::SQLiteDB::modeSerialized);
+	bool result = db_.Open(dbpath.data(),pwd, ndb::SQLiteDB::modeReadWrite | ndb::SQLiteDB::modeCreate | ndb::SQLiteDB::modeSerialized);
 	if (result)
 	{
 		bool res = repos::M3u8Repo::GetTaskDetails(db_, _task_item_model->_id, _task_item_model->_details_ts);
@@ -352,9 +357,11 @@ std::string UCTaskItem::RequestAria2(std::string& cmd) {
 }
 
 void UCTaskItem::kThreadTaskProcess_InserTask() {
-	
+	std::string dbpath;
+	std::string pwd;
+	repos::M3u8Repo::GetDbInfo(dbpath, pwd);
 	ndb::SQLiteDB db_;
-	bool result = db_.Open("./lygg", "", ndb::SQLiteDB::modeReadWrite | ndb::SQLiteDB::modeCreate | ndb::SQLiteDB::modeSerialized);
+	bool result = db_.Open(dbpath.data(), pwd, ndb::SQLiteDB::modeReadWrite | ndb::SQLiteDB::modeCreate | ndb::SQLiteDB::modeSerialized);
 	if (result)
 	{//int res = db_.Query("CREATE TABLE [M3u8Task] ([id] INTEGER  NOT NULL PRIMARY KEY,[status] INTEGER DEFAULT '0' NULL,[title] VARCHAR(255)  NULL,[request_url] VARCHAR(1024)  NULL,[folder_name] vARCHAR(255)  NULL,[aria2_request_status] INTEGER DEFAULT '0' NULL,[aria2_download_status] INTEGER DEFAULT '0' NULL,[context] TEXT  NULL)");
 	//	//int rowcount = models::M3u8Task::GetCountBy(db_, _task_item_model->get_title());
@@ -366,8 +373,11 @@ void UCTaskItem::kThreadTaskProcess_InserTask() {
 
 void UCTaskItem::kThreadTaskProcess_InserTaskAndDownload()
 {
+	std::string dbpath;
+	std::string pwd;
+	repos::M3u8Repo::GetDbInfo(dbpath, pwd);
 	ndb::SQLiteDB db_;
-	bool result = db_.Open("./lygg", "", ndb::SQLiteDB::modeReadWrite | ndb::SQLiteDB::modeCreate | ndb::SQLiteDB::modeSerialized);
+	bool result = db_.Open(dbpath.data(), pwd, ndb::SQLiteDB::modeReadWrite | ndb::SQLiteDB::modeCreate | ndb::SQLiteDB::modeSerialized);
 	if (result)
 	{//int res = db_.Query("CREATE TABLE [M3u8Task] ([id] INTEGER  NOT NULL PRIMARY KEY,[status] INTEGER DEFAULT '0' NULL,[title] VARCHAR(255)  NULL,[request_url] VARCHAR(1024)  NULL,[folder_name] vARCHAR(255)  NULL,[aria2_request_status] INTEGER DEFAULT '0' NULL,[aria2_download_status] INTEGER DEFAULT '0' NULL,[context] TEXT  NULL)");
 	//	//int rowcount = models::M3u8Task::GetCountBy(db_, _task_item_model->get_title());
