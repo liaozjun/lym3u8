@@ -6,15 +6,51 @@
 #include "boost/format.hpp"
 const std::wstring BasicForm::kClassName = L"lym3u8_form";
 std::string http_server_url = "http://localhost:8000/";
-std::string rpc_listen_port = "6800";
+u_short rpc_listen_port = 6800;
 
 BasicForm::BasicForm()
 {
 	http_server_runner_.reset(new HttpServerRunner());
+
+	TestBindPort(6800);
+
 }
 BasicForm::~BasicForm()
 {
 }
+
+bool BasicForm::TestBindPort(u_short port)
+{
+	bool f = false;
+	//初始化WSA  
+	WORD sockVersion = MAKEWORD(2, 2);
+	WSADATA wsaData;
+	if (WSAStartup(sockVersion, &wsaData) == 0)
+	{
+		//创建套接字  
+		SOCKET slisten = socket(AF_INET, SOCK_STREAM, IPPROTO_TCP);
+		if (slisten != INVALID_SOCKET)
+		{
+			//绑定IP和端口  
+			sockaddr_in sin;
+			sin.sin_family = AF_INET;
+			sin.sin_port = htons(port);
+			//sin.sin_addr.S_un.S_addr = INADDR_ANY;
+			sin.sin_addr.s_addr = inet_addr("127.0.0.1");
+			if (bind(slisten, (LPSOCKADDR)&sin, sizeof(sin)) == SOCKET_ERROR)
+			{
+				f = false;
+			}
+			else {
+				f = true;
+			}
+			closesocket(slisten);			
+		}
+		WSACleanup();
+	}
+	return f;
+}
+
 ui::Control* BasicForm::CreateControl(const std::wstring& pstrClass)
 {
 	// 扫描 XML 发现有名称为 CefControl 的节点，则创建一个 ui::CefControl 控件
@@ -61,8 +97,7 @@ void BasicForm::InitWindow()
 	edit_url = dynamic_cast<ui::RichEdit*>(FindControl(L"edit_url"));
 	edit_url->AttachReturn(nbase::Bind(&BasicForm::EditUrlReturn, this, std::placeholders::_1));
 
-	btn_navigate->AttachClick(nbase::Bind(&BasicForm::OnClick, this, std::placeholders::_1));
-	
+	btn_navigate->AttachClick(nbase::Bind(&BasicForm::OnClick, this, std::placeholders::_1));	
 
 	cef_control_->AttachTitleChange(nbase::Bind(&BasicForm::OnTitleChanged, this, std::placeholders::_1));
 	cef_control_->AttachM3u8LoadComplete(nbase::Bind(&BasicForm::M3u8LoadComplete, this,std::placeholders::_1,std::placeholders::_2));
@@ -76,8 +111,18 @@ void BasicForm::InitWindow()
 	this->AddTask(mt);*/
 	this->TaskListLoading(true);
 	nbase::ThreadManager::PostTask(kThreadTaskProcess, nbase::Bind(&BasicForm::kThreadTaskProcess_GetAllTask,this));
-	//nbase::ThreadManager::PostTask(kThreadTaskProcess, nbase::Bind(&TaskProcessRunner::testrun, task_process_runner_.get()));	
-	nbase::ThreadManager::PostTask(kThreadHttpServer, nbase::Bind(&HttpServerRunner::RunMongooseLoop, http_server_runner_.get(), http_server_url));
+	//nbase::ThreadManager::PostTask(kThreadTaskProcess, nbase::Bind(&TaskProcessRunner::testrun, task_process_runner_.get()));
+
+	u_short port = 8000;
+	for (int i = 0; i < 1000; i++) {
+		port = port + i;
+		if (TestBindPort(port)) {
+			break;
+		}
+	}
+	boost::format fmt = boost::format("http://localhost:%1%/")%port;
+	http_server_url = fmt.str();
+	//nbase::ThreadManager::PostTask(kThreadHttpServer, nbase::Bind(&HttpServerRunner::RunMongooseLoop, http_server_runner_.get(), http_server_url));
 }
 bool BasicForm::OnClick(ui::EventArgs* args) {
 	ui::Button* btn = (ui::Button*)args->pSender;
@@ -200,16 +245,11 @@ void BasicForm::kThreadTaskProcess_GetAllTask( ) {
 	}
 	db_.Close();
 	//Sleep(10000);
-	this->TaskListLoading(false);	
-	
-	/*Json::Value root;
-	Json::Reader jr;
-	jr.parse("{\"id\": \"qwer1\",\"jsonrpc\" : \"2.0\",	\"result\" : \"2bc4d00f31295d4a\"}", root);
-	std::string result1 = root["result1"].asString();*/
+	this->TaskListLoading(false);
 	//StartProcess();
 	this->RunAria2();
 
-	nbase::ThreadManager::PostDelayedTask(kThreadTaskProcess, nbase::Bind(&BasicForm::kThreadTaskProcess_DelayTask_ProcessDownload, this), nbase::TimeDelta::FromMilliseconds(1000 * 3));
+	//nbase::ThreadManager::PostDelayedTask(kThreadTaskProcess, nbase::Bind(&BasicForm::kThreadTaskProcess_DelayTask_ProcessDownload, this), nbase::TimeDelta::FromMilliseconds(1000 * 3));
 }
 void BasicForm::RunAria2() {
 	this->Aria2Conf();
@@ -276,6 +316,14 @@ void BasicForm::kThreadTaskProcess_DelayTask_ProcessDownload()
 }
 
 void BasicForm::Aria2Conf() {
+	u_short port = 6800;
+	for (int i = 0; i < 1000; i++) {
+		port = port + i;
+		if (TestBindPort(port)) {
+			break;
+		}
+	}
+	rpc_listen_port = port;
 	std::string path = nbase::UTF16ToUTF8(nbase::win32::GetCurrentModuleDirectory());
 	boost::format arai2conf = boost::format(
 		"log=%1%static\\log\\aria2.log\n"

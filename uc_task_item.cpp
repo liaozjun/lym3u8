@@ -53,19 +53,33 @@ void UCTaskItem::InitSubControls(models::M3u8Task& taskItemModel, std::function<
 	RefreshCtrls();
 }
 void UCTaskItem::RefreshCtrls() {
-	if (_task_item_model->_id != 0) {
-		btn_save->SetVisible(false);
-	}
-	else {
+	if (_task_item_model->_id == 0) {
+		//未保存
+		btn_download_save->SetEnabled(true);
+		btn_save->SetEnabled(true);
 		btn_play->SetEnabled(false);
 		btn_edit->SetEnabled(false);
+		btn_del_->SetEnabled(false);
 	}
+	if (_task_item_model->_id != 0) {
+		btn_download_save->SetEnabled(true);
+		btn_save->SetEnabled(false);
+		btn_play->SetEnabled(false);
+		btn_edit->SetEnabled(true);
+		btn_del_->SetEnabled(true);
+	}
+	 
 	if (_task_item_model->_status == models::M3u8Task::Status::WaitingForDownload) {
-		btn_download_save->SetText(L"等待");
 		btn_download_save->SetEnabled(false);
-		btn_download_save->SetState(ui::ControlStateType::kControlStateDisabled);
-		this->Invalidate();
+		btn_download_save->SetText(L"等待下载");
 	}
+	//if (_task_item_model->count == _task_item_model->count_complete) {
+	//	btn_download_save->SetVisible(false);
+	//	btn_save->SetVisible(false);
+	//}
+	//else {
+	//	btn_play->SetEnabled(false);
+	//}
 	boost::format fmt = boost::format("[%1%]/[%2%]/[%3%]/[%4%]") % _task_item_model->count%_task_item_model->count_complete%_task_item_model->count_error%_task_item_model->count_downloading;
 	std::string info = fmt.str();
 	label_progress->SetText(nbase::UTF8ToUTF16(info));
@@ -75,17 +89,17 @@ bool UCTaskItem::OnClick(ui::EventArgs* args)
 	ui::Button* btn = (ui::Button*)args->pSender;
 	std::wstring btnName = btn->GetName();
 	if (btnName == L"btn_download_save") {
+		//btn_download_save->SetEnabled(false);		 
 		nbase::ThreadManager::PostTask(kThreadTaskProcess, nbase::Bind(&UCTaskItem::kThreadTaskProcess_InserTaskAndDownload, this));
 	}
-	else if (btnName == L"btn_save") {
-		btn_save->SetVisible(false);
+	else if (btnName == L"btn_save") { 
 		nbase::ThreadManager::PostTask(kThreadTaskProcess, nbase::Bind(&UCTaskItem::kThreadTaskProcess_InserTask, this));
 	}
 	else if (btnName == L"btn_play") {
 		this->_OnClickBubble(nbase::UTF16ToUTF8(btnName),*(_task_item_model.get()));
 	}
 	else if (btnName == L"btn_edit") {
-
+		//btn_download_save->SetEnabled(true);
 	}
 	else if (btnName == L"btn_del") {
 		ui::ListBox* parent = dynamic_cast<ui::ListBox*>(this->GetParent());
@@ -163,6 +177,7 @@ void UCTaskItem::ProcessWaitingForDownload() {
 		}
 	}
 	db_.Close();
+	
 }
 std::string GetRequestCommand(std::string action,models::M3u8Task& task,models::M3u8Ts& ts) 
 {

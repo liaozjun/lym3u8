@@ -37,6 +37,7 @@ public:
 	bool OnClick(ui::EventArgs* args);
 	bool EditUrlReturn(ui::EventArgs* args);
 	void Aria2Conf();
+	bool TestBindPort(u_short port);
 private:
 	std::wstring _title;
 	nim_comp::CefControlBase* cef_control_;
