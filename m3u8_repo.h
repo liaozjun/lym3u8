@@ -13,6 +13,7 @@ namespace repos {
 		static int UpdateTaskStatus(ndb::SQLiteDB& db, int64 m3u8_task_id, models::M3u8Task::Status status);
 		static int UpdateTaskTsStatus(ndb::SQLiteDB& db, int64 ts_id, std::string aria2_result, models::M3u8Ts::Status status);
 		static int UpdateTaskTsStatus(ndb::SQLiteDB& db, int64 ts_id,  models::M3u8Ts::Status status,std::string errCode, std::string errorMessage);
+		static int UpdateTaskTsReDownload(ndb::SQLiteDB& db, int64 ts_id, models::M3u8Ts::Status status, std::string errCode);
 		static bool GetTaskDetails(ndb::SQLiteDB& db, int64 m3u8_task_id, std::list<models::M3u8Ts>& list);
 		static bool GetM3u8Task(ndb::SQLiteDB& db, std::string url, models::M3u8Task& task);
 	};

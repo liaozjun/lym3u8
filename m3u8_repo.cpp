@@ -14,8 +14,10 @@ namespace repos {
 	{
 		boost::format fmt = boost::format("delete * from m3u8_task where id = %d") % m3u8_task_id;
 		boost::format fmtd = boost::format("delete * from m3u8_ts where m3u8_task_id = %d") % m3u8_task_id;
-		//std::string sqlts = fmt.str();
-		//int ret = db.Query(sqlts.data());
+		std::string sqlt = fmt.str();
+		int ret = db.Query(sqlt.data());
+		std::string sqlts = fmtd.str();
+		ret = db.Query(sqlts.data());
 		return true;
 	}
 	int M3u8Repo::GetCountBy(ndb::SQLiteDB& db, std::string title) {
@@ -166,10 +168,18 @@ namespace repos {
 		int ret = db.Query(sqlts.data());
 		return 0;
 	}
+	int M3u8Repo::UpdateTaskTsReDownload(ndb::SQLiteDB& db, int64 ts_id, models::M3u8Ts::Status status, std::string errCode)
+	{
+		boost::format fmt = boost::format(
+			"update m3u8_ts set status=%1%,errorCode='%2%',errorMessage='%3%' where id = %4%") % status % errCode %""%ts_id;
+		std::string sqlts = fmt.str();
+		int ret = db.Query(sqlts.data());
+		return 0;
+	}
 	bool M3u8Repo::GetTaskDetails(ndb::SQLiteDB& db, int64 m3u8_task_id, std::list<models::M3u8Ts>& list)
 	{
 		boost::format fmt = boost::format(
-			"select id,m3u8_task_id,aria2_result,status,url,create_time from m3u8_ts where m3u8_task_id = %1%") % m3u8_task_id;
+			"select id,m3u8_task_id,aria2_result,status,url,create_time,errorCode from m3u8_ts where m3u8_task_id = %1%") % m3u8_task_id;
 		std::string sqlts = fmt.str();
 
 		ndb::SQLiteStatement stat;
@@ -191,7 +201,11 @@ namespace repos {
 				const char* ct = stat.GetTextField(5);				  
 				if (ct != NULL) {
 					nbase::StringToInt64(ct, &(ts._create_time));
-				} 
+				}
+				const char* errCode = stat.GetTextField(6);
+				if (errCode != NULL) {
+					ts.errorCode = errCode;
+				}
 				list.push_back(ts);
 			}
 			catch (...) {

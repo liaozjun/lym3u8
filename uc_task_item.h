@@ -21,6 +21,7 @@ public:
 	std::string RequestAria2(std::string& cmd);
 	std::string RequestAria2TellStatus(models::M3u8Ts& ts);
 	std::string RequestAria2AddUri(models::M3u8Ts& ts);
+	std::string RequestAria2RemoveDownloadResult(models::M3u8Ts& ts);
 	bool equalUrl(std::string url) {
 		return _task_item_model->_url == url;
 	}
@@ -29,12 +30,14 @@ private:
 	bool OnClick(ui::EventArgs* args);
 	void RefreshCtrls();
 	void kThreadTaskProcess_InserTask();
+	void kThreadTaskProcess_Delete();
 	void kThreadTaskProcess_InserTaskAndDownload();
 	bool ProcessTsDownload(ndb::SQLiteDB& db);
 private:
 	ui::ListBox* 	list_box_;
 	ui::Label*		label_title_;
-	ui::Label* label_progress;
+	ui::Label*		label_progress;
+	ui::Label*		label_info;
 
 	ui::Button*		btn_download_save;
 	ui::Button*		btn_save;

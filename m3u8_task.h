@@ -14,7 +14,11 @@ namespace models {
 			//下载中
 			Downloading = 2,
 			//完成下载
-			DownloadComplete = 3
+			DownloadComplete = 3,
+			//暂停
+			Pause = 4,
+			//重新下载错误的TS
+			ReDownloadErrorTs = 5
 		};
 		M3u8Task() {
 			create_time = 0;

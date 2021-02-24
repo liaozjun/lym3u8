@@ -13,7 +13,19 @@ UCTaskItem::UCTaskItem()
 UCTaskItem::~UCTaskItem()
 {
 }
+static size_t OnWriteData(void* buffer, size_t size, size_t nmemb, void* lpVoid)
+{
+	std::string* str = dynamic_cast<std::string*>((std::string *)lpVoid);
+	if (NULL == str || NULL == buffer)
+	{
+		return -1;
+	}
 
+	char* pData = (char*)buffer;
+	str->append(pData, size * nmemb);
+	return nmemb;
+
+}
 void UCTaskItem::InitSubControls(models::M3u8Task& taskItemModel, std::function<void(std::string, models::M3u8Task&)> OnClickBubble)
 {
 	_OnClickBubble = OnClickBubble;
@@ -31,6 +43,7 @@ void UCTaskItem::InitSubControls(models::M3u8Task& taskItemModel, std::function<
 
 	// 查找 Item 下的控件	 
 	label_title_ = dynamic_cast<ui::Label*>(FindSubControl(L"label_title"));
+	label_info = dynamic_cast<ui::Label*>(FindSubControl(L"label_info"));
 	label_progress = dynamic_cast<ui::Label*>(FindSubControl(L"label_progress"));
 	label_title_->SetText(nbase::UTF8ToUTF16(_task_item_model->_title));// get_title()));
 
@@ -53,44 +66,76 @@ void UCTaskItem::InitSubControls(models::M3u8Task& taskItemModel, std::function<
 	RefreshCtrls();
 }
 void UCTaskItem::RefreshCtrls() {
-	if (_task_item_model->_id == 0) {
-		//未保存
+	if (_task_item_model->_status == models::M3u8Task::Status::Saved) {
+		if (_task_item_model->_id == 0) {
+			//未保存
+			label_info->SetText(L"未保存");
+			btn_download_save->SetEnabled(true);
+			btn_save->SetEnabled(true);
+			btn_play->SetEnabled(false);
+			btn_edit->SetEnabled(false);
+			btn_del_->SetEnabled(false);
+		}
+		if (_task_item_model->_id != 0) {
+			label_info->SetText(L"已保存");
+			btn_download_save->SetEnabled(true);
+			btn_save->SetEnabled(false);
+			btn_play->SetEnabled(false);
+			btn_edit->SetEnabled(true);
+			btn_del_->SetEnabled(true);
+		}
+		label_info->SetText(L"下载");
+	}else if (_task_item_model->_status == models::M3u8Task::Status::WaitingForDownload) {
+		label_info->SetText(L"等待下载");
 		btn_download_save->SetEnabled(true);
-		btn_save->SetEnabled(true);
+		btn_download_save->SetText(L"暂停");
 		btn_play->SetEnabled(false);
-		btn_edit->SetEnabled(false);
+		btn_edit->SetEnabled(true);
+		btn_del_->SetEnabled(false);		 
+
+	}else if (_task_item_model->_status == models::M3u8Task::Status::Downloading) {
+		label_info->SetText(L"下载中");
+		btn_download_save->SetEnabled(true);
+		btn_download_save->SetText(L"暂停");
+		btn_play->SetEnabled(false);
+		btn_edit->SetEnabled(true);
 		btn_del_->SetEnabled(false);
 	}
-	if (_task_item_model->_id != 0) {
+	else if (_task_item_model->_status == models::M3u8Task::Status::DownloadComplete) {
+		label_info->SetText(L"下载完成");
+		btn_download_save->SetEnabled(false);
+		btn_download_save->SetText(L"下载");
+		if (_task_item_model->count_error != 0) {
+			btn_download_save->SetEnabled(true);
+			label_info->SetText(L"点击下载失败Ts");
+		}
+		btn_play->SetEnabled(true);
+		btn_edit->SetEnabled(true);
+		btn_del_->SetEnabled(true);
+	}
+	else if (_task_item_model->_status == models::M3u8Task::Status::Pause) {
+		label_info->SetText(L"已暂停");
 		btn_download_save->SetEnabled(true);
-		btn_save->SetEnabled(false);
+		btn_download_save->SetText(L"下载");
 		btn_play->SetEnabled(false);
 		btn_edit->SetEnabled(true);
 		btn_del_->SetEnabled(true);
 	}
-	 
-	if (_task_item_model->_status == models::M3u8Task::Status::WaitingForDownload) {
-		btn_download_save->SetEnabled(false);
-		btn_download_save->SetText(L"等待下载");
+	if (_task_item_model->_status != models::M3u8Task::Status::Saved) {
+		btn_save->SetVisible(false);
 	}
-	//if (_task_item_model->count == _task_item_model->count_complete) {
-	//	btn_download_save->SetVisible(false);
-	//	btn_save->SetVisible(false);
-	//}
-	//else {
-	//	btn_play->SetEnabled(false);
-	//}
 	boost::format fmt = boost::format("[%1%]/[%2%]/[%3%]/[%4%]") % _task_item_model->count%_task_item_model->count_complete%_task_item_model->count_error%_task_item_model->count_downloading;
-	std::string info = fmt.str();
-	label_progress->SetText(nbase::UTF8ToUTF16(info));
+	std::string info8 = fmt.str();
+	std::wstring info = nbase::UTF8ToUTF16(info8);
+
+	label_progress->SetText(info);
 }
 bool UCTaskItem::OnClick(ui::EventArgs* args)
 {
 	ui::Button* btn = (ui::Button*)args->pSender;
 	std::wstring btnName = btn->GetName();
-	if (btnName == L"btn_download_save") {
-		//btn_download_save->SetEnabled(false);		 
-		nbase::ThreadManager::PostTask(kThreadTaskProcess, nbase::Bind(&UCTaskItem::kThreadTaskProcess_InserTaskAndDownload, this));
+	if (btnName == L"btn_download_save") {		 
+		nbase::ThreadManager::PostTask(kThreadTaskProcess, nbase::Bind(&UCTaskItem::kThreadTaskProcess_InserTaskAndDownload, this));		 
 	}
 	else if (btnName == L"btn_save") { 
 		nbase::ThreadManager::PostTask(kThreadTaskProcess, nbase::Bind(&UCTaskItem::kThreadTaskProcess_InserTask, this));
@@ -102,24 +147,38 @@ bool UCTaskItem::OnClick(ui::EventArgs* args)
 		//btn_download_save->SetEnabled(true);
 	}
 	else if (btnName == L"btn_del") {
-		ui::ListBox* parent = dynamic_cast<ui::ListBox*>(this->GetParent());
-		return parent->Remove(this);
+		nbase::ThreadManager::PostTask(kThreadTaskProcess, nbase::Bind(&UCTaskItem::kThreadTaskProcess_Delete, this));
 	}
 	return true;
 }
-static size_t OnWriteData(void* buffer, size_t size, size_t nmemb, void* lpVoid)
+void UCTaskItem::kThreadTaskProcess_Delete()
 {
-	std::string* str = dynamic_cast<std::string*>((std::string *)lpVoid);
-	if (NULL == str || NULL == buffer)
+	std::string dbpath;
+	std::string pwd;
+	repos::M3u8Repo::GetDbInfo(dbpath, pwd);
+	ndb::SQLiteDB db_;
+	bool result = db_.Open(dbpath.data(), pwd, ndb::SQLiteDB::modeReadWrite | ndb::SQLiteDB::modeCreate | ndb::SQLiteDB::modeSerialized);
+	if (result)
 	{
-		return -1;
+		//读取明细
+		if (_task_item_model->_details_ts.size() == 0) {
+			bool res = repos::M3u8Repo::GetTaskDetails(db_, _task_item_model->_id, _task_item_model->_details_ts);
+		}
+		//删除数据库记录
+		//repos::M3u8Repo::Delete(db_, _task_item_model->_id);
 	}
-
-	char* pData = (char*)buffer;
-	str->append(pData, size * nmemb);
-	return nmemb;
-
+	db_.Close();
+	//删除文件
+	//删除aria2 任务
+	BOOST_FOREACH(models::M3u8Ts& item, _task_item_model->_details_ts)
+	{
+		std::string result = this->RequestAria2RemoveDownloadResult(item);
+	}	
+	ui::ListBox* parent = dynamic_cast<ui::ListBox*>(this->GetParent());
+	parent->Remove(this);
+	//RefreshCtrls();
 }
+
 void UCTaskItem::ProcessDownloading() {
 	std::string dbpath;
 	std::string pwd;
@@ -128,9 +187,11 @@ void UCTaskItem::ProcessDownloading() {
 	bool result = db_.Open(dbpath.data(), pwd, ndb::SQLiteDB::modeReadWrite | ndb::SQLiteDB::modeCreate | ndb::SQLiteDB::modeSerialized);
 	if (result)
 	{
+		//读取明细
 		if (_task_item_model->_details_ts.size() == 0) {
 			bool res = repos::M3u8Repo::GetTaskDetails(db_, _task_item_model->_id, _task_item_model->_details_ts);
 		}
+		//是否全部完成
 		auto it = std::count_if(std::begin(_task_item_model->_details_ts), std::end(_task_item_model->_details_ts), [](models::M3u8Ts& item) {return item._status == models::M3u8Ts::Status::DownloadComplete; });
 		if (it == _task_item_model->_details_ts.size()) 
 		{
@@ -138,9 +199,10 @@ void UCTaskItem::ProcessDownloading() {
 			repos::M3u8Repo::UpdateTaskStatus(db_, _task_item_model->_id, _task_item_model->_status);
 		}
 		else 
-		{
+		{//未完成 处理
 			this->ProcessTsDownload(db_);
 		}
+		_task_item_model->count = _task_item_model->_details_ts.size();
 		//完成
 		auto count_complete = std::count_if(std::begin(_task_item_model->_details_ts), std::end(_task_item_model->_details_ts), [](models::M3u8Ts& item) {
 			return item._status == models::M3u8Ts::Status::DownloadComplete;
@@ -170,11 +232,15 @@ void UCTaskItem::ProcessWaitingForDownload() {
 	bool result = db_.Open(dbpath.data(),pwd, ndb::SQLiteDB::modeReadWrite | ndb::SQLiteDB::modeCreate | ndb::SQLiteDB::modeSerialized);
 	if (result)
 	{
-		bool res = repos::M3u8Repo::GetTaskDetails(db_, _task_item_model->_id, _task_item_model->_details_ts);
-		if (res) {			
-			this->_task_item_model->_status = models::M3u8Task::Status::Downloading;
-			repos::M3u8Repo::UpdateTaskStatus(db_, _task_item_model->_id, _task_item_model->_status);			
+
+		if (_task_item_model->_details_ts.size() == 0)
+		{
+			repos::M3u8Repo::GetTaskDetails(db_, _task_item_model->_id, _task_item_model->_details_ts);
 		}
+
+		this->_task_item_model->_status = models::M3u8Task::Status::Downloading;
+		repos::M3u8Repo::UpdateTaskStatus(db_, _task_item_model->_id, _task_item_model->_status);
+
 	}
 	db_.Close();
 	
@@ -221,6 +287,14 @@ std::string GetRequestCommand(std::string action,models::M3u8Task& task,models::
 		array.append(array1);
 		value["params"] = array;
 	}
+	else if (action == "aria2.removeDownloadResult") {
+		//{"id":"qwer1","jsonrpc":"2.0","method":"aria2.removeDownloadResult","params":["13e706faf06571b2"]}
+		value["jsonrpc"] = "2.0";
+		value["id"] = nbase::Int64ToString(ts._id);// "qwer";
+		value["method"] = "aria2.removeDownloadResult";
+		array.append(ts._aria2_result);	 
+		value["params"] = array;
+	}
 	std::string json_file = writer.write(value);
 	return json_file;
 }
@@ -234,7 +308,10 @@ std::string UCTaskItem::RequestAria2TellStatus(models::M3u8Ts& it)
 	std::string json_file = GetRequestCommand("aria2.tellStatus", *(_task_item_model.get()), it);
 	return this->RequestAria2(json_file);
 }
-
+std::string UCTaskItem::RequestAria2RemoveDownloadResult(models::M3u8Ts& it) {
+	std::string json_file = GetRequestCommand("aria2.removeDownloadResult", *(_task_item_model.get()), it);
+	return this->RequestAria2(json_file);
+}
 bool UCTaskItem::ProcessTsDownload(ndb::SQLiteDB& db)
 {
 	//find ts 正在下载的 是否完成（包括出错停止） 完成更新对象和数据库状态。
@@ -380,6 +457,7 @@ void UCTaskItem::kThreadTaskProcess_InserTask() {
 	if (result)
 	{//int res = db_.Query("CREATE TABLE [M3u8Task] ([id] INTEGER  NOT NULL PRIMARY KEY,[status] INTEGER DEFAULT '0' NULL,[title] VARCHAR(255)  NULL,[request_url] VARCHAR(1024)  NULL,[folder_name] vARCHAR(255)  NULL,[aria2_request_status] INTEGER DEFAULT '0' NULL,[aria2_download_status] INTEGER DEFAULT '0' NULL,[context] TEXT  NULL)");
 	//	//int rowcount = models::M3u8Task::GetCountBy(db_, _task_item_model->get_title());
+		_task_item_model->_status = models::M3u8Task::Status::Saved;
 		repos::M3u8Repo::Insert(db_, *_task_item_model);
 		RefreshCtrls();
 	}
@@ -394,15 +472,48 @@ void UCTaskItem::kThreadTaskProcess_InserTaskAndDownload()
 	ndb::SQLiteDB db_;
 	bool result = db_.Open(dbpath.data(), pwd, ndb::SQLiteDB::modeReadWrite | ndb::SQLiteDB::modeCreate | ndb::SQLiteDB::modeSerialized);
 	if (result)
-	{//int res = db_.Query("CREATE TABLE [M3u8Task] ([id] INTEGER  NOT NULL PRIMARY KEY,[status] INTEGER DEFAULT '0' NULL,[title] VARCHAR(255)  NULL,[request_url] VARCHAR(1024)  NULL,[folder_name] vARCHAR(255)  NULL,[aria2_request_status] INTEGER DEFAULT '0' NULL,[aria2_download_status] INTEGER DEFAULT '0' NULL,[context] TEXT  NULL)");
-	//	//int rowcount = models::M3u8Task::GetCountBy(db_, _task_item_model->get_title());
-		if (_task_item_model->_id == 0) {
-			repos::M3u8Repo::Insert(db_, *_task_item_model);
+	{
+		if (_task_item_model->_status == models::M3u8Task::Status::Saved) 
+		{
+			if (_task_item_model->_id == 0) 
+			{
+				repos::M3u8Repo::Insert(db_, *_task_item_model);
+			}
+			_task_item_model->_status = models::M3u8Task::Status::WaitingForDownload;
+			repos::M3u8Repo::UpdateTaskStatus(db_, _task_item_model->_id, _task_item_model->_status);
 		}
-		_task_item_model->_status = models::M3u8Task::Status::WaitingForDownload;
-		repos::M3u8Repo::UpdateTaskStatus(db_, _task_item_model->_id, _task_item_model->_status);
+		else  if (_task_item_model->_status == models::M3u8Task::Status::WaitingForDownload ||
+			_task_item_model->_status == models::M3u8Task::Status::Downloading) 
+		{
+			_task_item_model->_status = models::M3u8Task::Status::Pause;
+			repos::M3u8Repo::UpdateTaskStatus(db_, _task_item_model->_id, _task_item_model->_status);
+		}
+		else if (_task_item_model->_status == models::M3u8Task::Status::Pause) {
+			_task_item_model->_status = models::M3u8Task::Status::WaitingForDownload;
+			repos::M3u8Repo::UpdateTaskStatus(db_, _task_item_model->_id, _task_item_model->_status);
+		}
+		else if (_task_item_model->_status == models::M3u8Task::Status::DownloadComplete) {
+			//重置失败下载的ts
+			if (_task_item_model->_details_ts.size() == 0) {
+				bool res = repos::M3u8Repo::GetTaskDetails(db_, _task_item_model->_id, _task_item_model->_details_ts);
+			}
+			BOOST_FOREACH(models::M3u8Ts& item, _task_item_model->_details_ts)
+			{
+				if (item._status == models::M3u8Ts::Status::DownloadComplete &&
+					item.errorCode != "0")
+				{
+					item._status = models::M3u8Ts::Status::Saved;
+					item.errorCode = "";
+					repos::M3u8Repo::UpdateTaskTsReDownload(db_, item._id, item._status, item.errorCode);
+				}
+			}
+			//进入等待下载
+			_task_item_model->_status = models::M3u8Task::Status::WaitingForDownload;
+			repos::M3u8Repo::UpdateTaskStatus(db_, _task_item_model->_id, _task_item_model->_status);
+		}
 	}
-	db_.Close();
+	db_.Close();	
 	RefreshCtrls();
-
 }
+//int res = db_.Query("CREATE TABLE [M3u8Task] ([id] INTEGER  NOT NULL PRIMARY KEY,[status] INTEGER DEFAULT '0' NULL,[title] VARCHAR(255)  NULL,[request_url] VARCHAR(1024)  NULL,[folder_name] vARCHAR(255)  NULL,[aria2_request_status] INTEGER DEFAULT '0' NULL,[aria2_download_status] INTEGER DEFAULT '0' NULL,[context] TEXT  NULL)");
+		//	//int rowcount = models::M3u8Task::GetCountBy(db_, _task_item_model->get_title());

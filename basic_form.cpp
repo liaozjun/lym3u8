@@ -122,7 +122,7 @@ void BasicForm::InitWindow()
 	}
 	boost::format fmt = boost::format("http://localhost:%1%/")%port;
 	http_server_url = fmt.str();
-	//nbase::ThreadManager::PostTask(kThreadHttpServer, nbase::Bind(&HttpServerRunner::RunMongooseLoop, http_server_runner_.get(), http_server_url));
+	nbase::ThreadManager::PostTask(kThreadHttpServer, nbase::Bind(&HttpServerRunner::RunMongooseLoop, http_server_runner_.get(), http_server_url));
 }
 bool BasicForm::OnClick(ui::EventArgs* args) {
 	ui::Button* btn = (ui::Button*)args->pSender;
@@ -249,7 +249,7 @@ void BasicForm::kThreadTaskProcess_GetAllTask( ) {
 	//StartProcess();
 	this->RunAria2();
 
-	//nbase::ThreadManager::PostDelayedTask(kThreadTaskProcess, nbase::Bind(&BasicForm::kThreadTaskProcess_DelayTask_ProcessDownload, this), nbase::TimeDelta::FromMilliseconds(1000 * 3));
+	nbase::ThreadManager::PostDelayedTask(kThreadTaskProcess, nbase::Bind(&BasicForm::kThreadTaskProcess_DelayTask_ProcessDownload, this), nbase::TimeDelta::FromMilliseconds(1000 * 3));
 }
 void BasicForm::RunAria2() {
 	this->Aria2Conf();
