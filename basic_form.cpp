@@ -181,7 +181,7 @@ void BasicForm::M3u8LoadComplete(std::string url, std::string json_parms)
 {	
 	auto it = url.find("localhost");
 	if (it != url.npos) {
-		return;
+	//	return;
 	}
 	std::string dbpath;
 	std::string pwd;
@@ -192,7 +192,8 @@ void BasicForm::M3u8LoadComplete(std::string url, std::string json_parms)
 	{
 		models::M3u8Task task;
 		bool f = repos::M3u8Repo::GetM3u8Task(db_, url, task);
-		if (task._id == 0) {
+		//if (task._id == 0) 
+		{
 
 			int length = list_box_->GetCount();
 			bool isexists = false;
@@ -204,17 +205,18 @@ void BasicForm::M3u8LoadComplete(std::string url, std::string json_parms)
 					break;
 				}				 
 			}
-			if (!isexists) {
+			//if (!isexists) 
+			{
 				models::M3u8Task m(nbase::UTF16ToUTF8(_title), url, json_parms);
 				this->AddUCTaskItem(m);
 			}
-			else {
+			/*else {
 				nim_comp::Toast::ShowToast(L"该URL已存在", 3000, GetHWND());
-			}
+			}*/
 		}
-		else {
+		/*else {
 			nim_comp::Toast::ShowToast(L"该URL已存在", 3000, GetHWND());
-		}
+		}*/
 	}
 	db_.Close();
 } 
@@ -312,7 +314,7 @@ void BasicForm::kThreadTaskProcess_DelayTask_ProcessDownload()
 	}
 
 	nbase::ThreadManager::PostDelayedTask(kThreadTaskProcess, nbase::Bind(&BasicForm::kThreadTaskProcess_DelayTask_ProcessDownload, this)
-		, nbase::TimeDelta::FromMilliseconds(1000 * 5));
+		, nbase::TimeDelta::FromMilliseconds(1000));
 }
 
 void BasicForm::Aria2Conf() {

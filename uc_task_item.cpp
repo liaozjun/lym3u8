@@ -4,12 +4,11 @@
 #include "third_party/curl/include/curl/curl.h"
 #include "third_party/jsoncpp/include/json/json.h"
 #include <boost/foreach.hpp>
+//#include <boost/filesystem.hpp>
 UCTaskItem::UCTaskItem()
 {
 	
 }
-
-
 UCTaskItem::~UCTaskItem()
 {
 }
@@ -151,8 +150,11 @@ bool UCTaskItem::OnClick(ui::EventArgs* args)
 	}
 	return true;
 }
+ 
+ 
 void UCTaskItem::kThreadTaskProcess_Delete()
 {
+	LOG(INFO) << "kThreadTaskProcess_Delete";
 	std::string dbpath;
 	std::string pwd;
 	repos::M3u8Repo::GetDbInfo(dbpath, pwd);
@@ -165,14 +167,21 @@ void UCTaskItem::kThreadTaskProcess_Delete()
 			bool res = repos::M3u8Repo::GetTaskDetails(db_, _task_item_model->_id, _task_item_model->_details_ts);
 		}
 		//删除数据库记录
-		//repos::M3u8Repo::Delete(db_, _task_item_model->_id);
+		repos::M3u8Repo::Delete(db_, _task_item_model->_id);
 	}
 	db_.Close();
 	//删除文件
+	std::string m3u8path = (boost::format("%1%m3u8\\%2%") % nbase::UTF16ToUTF8(nbase::win32::GetCurrentModuleDirectory())%_task_item_model->_folder_name).str();
+	std::wstring wm3u8path = nbase::UTF8ToUTF16(m3u8path);
+	//boost::filesystem::remove_all(m3u8path);
+//	nbase::DeleteFile(wm3u8path);
+	nbase::DeleteDirectory(wm3u8path);
 	//删除aria2 任务
 	BOOST_FOREACH(models::M3u8Ts& item, _task_item_model->_details_ts)
 	{
-		std::string result = this->RequestAria2RemoveDownloadResult(item);
+		if (!item._aria2_result.empty()) {
+			std::string result = this->RequestAria2RemoveDownloadResult(item);
+		}
 	}	
 	ui::ListBox* parent = dynamic_cast<ui::ListBox*>(this->GetParent());
 	parent->Remove(this);
@@ -351,14 +360,19 @@ bool UCTaskItem::ProcessTsDownload(ndb::SQLiteDB& db)
 					item._status = models::M3u8Ts::Status::DownloadComplete;
 					item.errorMessage = root["result"]["errorMessage"].asString();
 					repos::M3u8Repo::UpdateTaskTsStatus(db, item._id, item._status, item.errorCode, item.errorMessage);
+					if (item.errorCode != "0") {
+						this->RequestAria2RemoveDownloadResult(item);
+					}
 				}else
 				{//{"id":"26704","jsonrpc":"2.0","error":{"code":1,"message":"GID 13e706faf06571b2 is not found"}}
-					item.errorCode = root["error"]["code"].asString();
-					
+					item.errorCode = root["error"]["code"].asString();					
 					if (!item.errorCode.empty()) {
 						item._status = models::M3u8Ts::Status::DownloadComplete;
 						item.errorMessage = root["error"]["message"].asString();
 						repos::M3u8Repo::UpdateTaskTsStatus(db, item._id, item._status, item.errorCode, item.errorMessage);
+					}
+					if (item.errorCode != "0") {
+						this->RequestAria2RemoveDownloadResult(item);
 					}
 				}
 			}

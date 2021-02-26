@@ -12,8 +12,8 @@ namespace repos {
 	}
 	int M3u8Repo::Delete(ndb::SQLiteDB& db, int64 m3u8_task_id)
 	{
-		boost::format fmt = boost::format("delete * from m3u8_task where id = %d") % m3u8_task_id;
-		boost::format fmtd = boost::format("delete * from m3u8_ts where m3u8_task_id = %d") % m3u8_task_id;
+		boost::format fmt = boost::format("delete  from m3u8_task where id = %d") % m3u8_task_id;
+		boost::format fmtd = boost::format("delete  from m3u8_ts where m3u8_task_id = %d") % m3u8_task_id;
 		std::string sqlt = fmt.str();
 		int ret = db.Query(sqlt.data());
 		std::string sqlts = fmtd.str();
@@ -162,8 +162,15 @@ namespace repos {
 	}
 	int M3u8Repo::UpdateTaskTsStatus(ndb::SQLiteDB& db, int64 ts_id, models::M3u8Ts::Status status, std::string errorCode,std::string errorMessage)
 	{
-		boost::format fmt = boost::format(
-			"update m3u8_ts set status=%1%,errorCode='%2%',errorMessage='%3%' where id = %4%") % status % errorCode %errorMessage%ts_id;
+		boost::format fmt;
+		if (status == models::M3u8Ts::Status::DownloadComplete) {
+			fmt = boost::format(
+				"update m3u8_ts set status=%1%,errorCode='%2%',errorMessage='%3%',aria2_result='' where id = %4%") % status % errorCode %errorMessage%ts_id;
+		}
+		else {
+			fmt = boost::format(
+				"update m3u8_ts set status=%1%,errorCode='%2%',errorMessage='%3%' where id = %4%") % status % errorCode %errorMessage%ts_id;
+		}
 		std::string sqlts = fmt.str();
 		int ret = db.Query(sqlts.data());
 		return 0;
