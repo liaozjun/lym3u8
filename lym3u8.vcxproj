@@ -35,7 +35,7 @@
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release|Win32'" Label="Configuration">
     <ConfigurationType>Application</ConfigurationType>
     <UseDebugLibraries>false</UseDebugLibraries>
-    <PlatformToolset>v141</PlatformToolset>
+    <PlatformToolset>v120_xp</PlatformToolset>
     <WholeProgramOptimization>true</WholeProgramOptimization>
     <CharacterSet>Unicode</CharacterSet>
   </PropertyGroup>
@@ -80,6 +80,8 @@
   </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">
     <LinkIncremental>false</LinkIncremental>
+    <IncludePath>E:\NimDuilib\lym3u8\nim;E:\NimDuilib\lym3u8\nim\third_party\cef_wrapper;E:\NimDuilib\lym3u8\nim_ext;E:\NimDuilib\lym3u8\;$(IncludePath)</IncludePath>
+    <LibraryPath>E:\NimDuilib\lym3u8\nim_ext\libs;$(LibraryPath)</LibraryPath>
   </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release|x64'">
     <LinkIncremental>false</LinkIncremental>
@@ -128,15 +130,19 @@
       <FunctionLevelLinking>true</FunctionLevelLinking>
       <IntrinsicFunctions>true</IntrinsicFunctions>
       <SDLCheck>true</SDLCheck>
-      <PreprocessorDefinitions>WIN32;NDEBUG;_WINDOWS;%(PreprocessorDefinitions)</PreprocessorDefinitions>
+      <PreprocessorDefinitions>WIN32;NDEBUG;_WINDOWS;_SCL_SECURE_NO_WARNINGS;CURL_STATICLIB;%(PreprocessorDefinitions)</PreprocessorDefinitions>
       <ConformanceMode>true</ConformanceMode>
       <PrecompiledHeaderFile>pch.h</PrecompiledHeaderFile>
+      <RuntimeLibrary>MultiThreaded</RuntimeLibrary>
     </ClCompile>
     <Link>
       <SubSystem>Windows</SubSystem>
       <EnableCOMDATFolding>true</EnableCOMDATFolding>
       <OptimizeReferences>true</OptimizeReferences>
       <GenerateDebugInformation>true</GenerateDebugInformation>
+      <AdditionalLibraryDirectories>E:\NimDuilib\lym3u8\nim_ext\libs;%(AdditionalLibraryDirectories)</AdditionalLibraryDirectories>
+      <AdditionalDependencies>ws2_32.lib;winmm.lib;wldap32.lib;libeay32.lib;ssleay32.lib;%(AdditionalDependencies)</AdditionalDependencies>
+      <DelayLoadDLLs>libcef.dll</DelayLoadDLLs>
     </Link>
   </ItemDefinitionGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Release|x64'">
@@ -159,6 +165,7 @@
     </Link>
   </ItemDefinitionGroup>
   <ItemGroup>
+    <ClInclude Include="aria2_helper.h" />
     <ClInclude Include="basic_form.h" />
     <ClInclude Include="framework.h" />
     <ClInclude Include="http_server_runner.h" />
@@ -166,19 +173,23 @@
     <ClInclude Include="m3u8_repo.h" />
     <ClInclude Include="m3u8_task.h" />
     <ClInclude Include="main.h" />
+    <ClInclude Include="misc_worker.h" />
     <ClInclude Include="pch.h" />
     <ClInclude Include="Resource.h" />
     <ClInclude Include="run_thread.h" />
     <ClInclude Include="targetver.h" />
     <ClInclude Include="uc_task_item.h" />
+    <ClInclude Include="ui_ext_worker.h" />
   </ItemGroup>
   <ItemGroup>
+    <ClCompile Include="aria2_helper.cpp" />
     <ClCompile Include="basic_form.cpp" />
     <ClCompile Include="http_server_runner.cpp" />
     <ClCompile Include="lym3u8.cpp" />
     <ClCompile Include="m3u8_repo.cpp" />
     <ClCompile Include="m3u8_task.cpp" />
     <ClCompile Include="main.cpp" />
+    <ClCompile Include="misc_worker.cpp" />
     <ClCompile Include="pch.cpp">
       <PrecompiledHeader Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">Create</PrecompiledHeader>
       <PrecompiledHeader Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">Create</PrecompiledHeader>
@@ -187,6 +198,7 @@
     </ClCompile>
     <ClCompile Include="run_thread.cpp" />
     <ClCompile Include="uc_task_item.cpp" />
+    <ClCompile Include="ui_ext_worker.cpp" />
   </ItemGroup>
   <ItemGroup>
     <ResourceCompile Include="lym3u8.rc" />
@@ -208,6 +220,10 @@
     <ProjectReference Include="..\nim\ui_components\ui_components.vcxproj">
       <Project>{0149ba6e-3c0a-426d-aa0a-0b9ec7742f19}</Project>
     </ProjectReference>
+  </ItemGroup>
+  <ItemGroup>
+    <None Include="..\Debug\resources.zip" />
+    <None Include="theme2.bin" />
   </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
   <ImportGroup Label="ExtensionTargets">

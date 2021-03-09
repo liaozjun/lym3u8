@@ -20,7 +20,7 @@ namespace models {
 		end_time = 0;
 	}
 	void M3u8Task::LoadDbInit(int64 id, std::string title, std::string url, models::M3u8Task::Status status, std::string folder_name, std::string content,
-		int64_t ct,int64_t et) {
+		int64_t ct,int64_t et, int count,int count_downloading,int count_complete,int count_error) {
 		this->_id = id;
 		this->_title = title;
 		this->_url = url;
@@ -29,6 +29,10 @@ namespace models {
 		this->_content = content;
 		create_time = ct;
 		end_time = et;
+		this->count = count;
+		this->count_downloading = count_downloading;
+		this->count_complete = count_complete;
+		this->count_error = count_error;
 	}
 
 	bool M3u8Task::ProcessContext(std::list<std::string>& urls, std::list<std::string>& allm3u8) {

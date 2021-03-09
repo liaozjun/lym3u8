@@ -7,7 +7,7 @@ void MainThread::Init()
 	//aria2c.exe --conf-path=./aria2.conf --check-certificate=false
 	nbase::ThreadManager::RegisterThread(kThreadUI);
 	//
-	task_process_thread_.reset(new TaskProcessThread(kThreadTaskProcess, "kThreadTaskProcess"));
+	task_process_thread_.reset(new TaskProcessThread(kThreadMisc, "kThreadMisc"));
 	task_process_thread_->Start();
 	//
 	http_server_thread_.reset(new HttpServerThread(kThreadHttpServer, "kThreadHttpServer"));
@@ -25,7 +25,7 @@ void MainThread::Init()
 	// 资源被导入到资源列表分类为 THEME，资源名称为 IDR_THEME
 	// 如果资源使用的是本地的 zip 文件而非资源中的 zip 压缩包
 	// 可以使用 OpenResZip 另一个重载函数打开本地的资源压缩包
-	ui::GlobalManager::OpenResZip(MAKEINTRESOURCE(IDR_THEME), L"THEME", "");
+	ui::GlobalManager::OpenResZip(MAKEINTRESOURCE(IDR_THEME1), L"THEME", "");
 	// ui::GlobalManager::OpenResZip(L"resources.zip", "");
 	ui::GlobalManager::Startup(L"resources\\", ui::CreateControlCallback(), false);
 #endif

@@ -1,6 +1,8 @@
 #pragma once
 #include "m3u8_task.h"
 #include "http_server_runner.h"
+#include "task_manager_worker.h"
+#include "uc_task_item.h"
 class BasicForm : public ui::WindowImplBase
 {
 public:
@@ -29,15 +31,15 @@ public:
 	void M3u8LoadComplete(std::string url, std::string json_parms);
 	void OnTitleChanged(std::wstring title);
 	void TaskListLoading(bool isloading);
-	void AddUCTaskItem(models::M3u8Task& mt);
+	UCTaskItem* AddUCTaskItem(models::M3u8Task& mt);
 	
-	void RunAria2();
+ 
 	void OnClickBubble(std::string action, models::M3u8Task& task);
 	void OnLoadEnd(int httpStatusCode);
 	bool OnClick(ui::EventArgs* args);
 	bool EditUrlReturn(ui::EventArgs* args);
-	void Aria2Conf();
-	bool TestBindPort(u_short port);
+
+	 
 private:
 	std::wstring _title;
 	nim_comp::CefControlBase* cef_control_;
@@ -51,9 +53,8 @@ private:
 	ui::Button* btn_home;
 private: 
 	std::unique_ptr<HttpServerRunner> http_server_runner_;
-private:
-	void kThreadTaskProcess_GetAllTask( );
-	void kThreadTaskProcess_DelayTask_ProcessDownload();
+	//std::unique_ptr<TaskManagerWorker> task_manager_worker;
+ 
 	
 };
 

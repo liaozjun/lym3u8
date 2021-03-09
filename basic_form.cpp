@@ -3,53 +3,24 @@
 #include "uc_task_item.h"
 #include "m3u8_repo.h"
 #include "third_party/jsoncpp/include/json/json.h"
-#include "boost/format.hpp"
+#include <boost/format.hpp>
+#include "ui_ext_worker.h"
+#include "misc_worker.h"
 const std::wstring BasicForm::kClassName = L"lym3u8_form";
 std::string http_server_url = "http://localhost:8000/";
-u_short rpc_listen_port = 6800;
 
 BasicForm::BasicForm()
 {
 	http_server_runner_.reset(new HttpServerRunner());
 
-	TestBindPort(6800);
-
+	//task_manager_worker.reset(new TaskManagerWorker());
+ 
+	UiExtWorker::GetInstance()->Init(this);
 }
 BasicForm::~BasicForm()
 {
 }
 
-bool BasicForm::TestBindPort(u_short port)
-{
-	bool f = false;
-	//初始化WSA  
-	WORD sockVersion = MAKEWORD(2, 2);
-	WSADATA wsaData;
-	if (WSAStartup(sockVersion, &wsaData) == 0)
-	{
-		//创建套接字  
-		SOCKET slisten = socket(AF_INET, SOCK_STREAM, IPPROTO_TCP);
-		if (slisten != INVALID_SOCKET)
-		{
-			//绑定IP和端口  
-			sockaddr_in sin;
-			sin.sin_family = AF_INET;
-			sin.sin_port = htons(port);
-			//sin.sin_addr.S_un.S_addr = INADDR_ANY;
-			sin.sin_addr.s_addr = inet_addr("127.0.0.1");
-			if (bind(slisten, (LPSOCKADDR)&sin, sizeof(sin)) == SOCKET_ERROR)
-			{
-				f = false;
-			}
-			else {
-				f = true;
-			}
-			closesocket(slisten);			
-		}
-		WSACleanup();
-	}
-	return f;
-}
 
 ui::Control* BasicForm::CreateControl(const std::wstring& pstrClass)
 {
@@ -82,12 +53,15 @@ std::wstring BasicForm::GetWindowClassName() const
 void BasicForm::InitWindow()
 {
 	cef_control_ = dynamic_cast<nim_comp::CefControlBase*>(FindControl(L"cef_control"));
+#ifdef _DEBUG
 	cef_control_dev_ = dynamic_cast<nim_comp::CefControlBase*>(FindControl(L"cef_control_dev"));
 	cef_control_->AttachDevTools(cef_control_dev_);
 	if (!nim_comp::CefManager::GetInstance()->IsEnableOffsetRender()) {
 		cef_control_dev_->SetVisible(false);
 	}
-	//cef_control_->LoadURL(L"http://www.suduzy6.com:777/play-15024.html");
+#endif // _DEBUG
+
+	//cef_control_->LoadURL(L"https://cn.pornhub.com/view_video.php?viewkey=ph5d681e304a483");
 	cef_control_->LoadURL(nbase::win32::GetCurrentModuleDirectory() + L"dist/index.html");
 	list_box_ = dynamic_cast<ui::ListBox*>(FindControl(L"list"));
 	task_loading_ = dynamic_cast<ui::HBox*>(FindControl(L"task_loading"));
@@ -103,15 +77,9 @@ void BasicForm::InitWindow()
 	cef_control_->AttachM3u8LoadComplete(nbase::Bind(&BasicForm::M3u8LoadComplete, this,std::placeholders::_1,std::placeholders::_2));
 	cef_control_->AttachLoadEnd(nbase::Bind(&BasicForm::OnLoadEnd, this, std::placeholders::_1));
 
-	/*this->task_loading_->SetVisible(false);
-	this->list_box_->SetVisible(true);
+	this->TaskListLoading(true); 
+	nbase::ThreadManager::PostTask(kThreadMisc, nbase::Bind(&MiscWorker::get_all_task, MiscWorker::GetInstance()));
 
-	/*models::M3u8Task mt;
-	mt._title = "ddd";
-	this->AddTask(mt);*/
-	this->TaskListLoading(true);
-	nbase::ThreadManager::PostTask(kThreadTaskProcess, nbase::Bind(&BasicForm::kThreadTaskProcess_GetAllTask,this));
-	//nbase::ThreadManager::PostTask(kThreadTaskProcess, nbase::Bind(&TaskProcessRunner::testrun, task_process_runner_.get()));
 
 	u_short port = 8000;
 	for (int i = 0; i < 1000; i++) {
@@ -152,9 +120,11 @@ void BasicForm::OnClickBubble(std::string action, models::M3u8Task& task)
 		cur_url = http_server_url + task._folder_name + "/index.m3u8";
 		cef_control_->LoadURL(nbase::win32::GetCurrentModuleDirectory() + L"dist/index.html");
 	}
+	//list_box_->se
 }
 void BasicForm::OnLoadEnd(int httpStatusCode)
-{ 
+{
+	cef_control_->resetGotM3u8();
 	cef_control_->RegisterCppFunc(L"GetCurrPalyUrl", ToWeakCallback([this](const std::string& params, nim_comp::ReportResultFunction callback) {
 		//nim_comp::Toast::ShowToast(nbase::UTF8ToUTF16(params), 3000, GetHWND());
 		//callback(true, R"({ "message": "Success." })");
@@ -165,11 +135,12 @@ void BasicForm::OnLoadEnd(int httpStatusCode)
 	}));
 }
 
-void BasicForm::AddUCTaskItem(models::M3u8Task& mt) {
+UCTaskItem* BasicForm::AddUCTaskItem(models::M3u8Task& mt) {
 	UCTaskItem* item = new UCTaskItem;
 	ui::GlobalManager::FillBoxWithCache(item, L"basic/task_item.xml");
 	item->InitSubControls(mt, std::bind(&BasicForm::OnClickBubble, this, std::placeholders::_1,std::placeholders::_2));
 	list_box_->AddAt(item, 0);
+	return item;
 }
 
 void BasicForm::TaskListLoading(bool isloading) {
@@ -181,7 +152,7 @@ void BasicForm::M3u8LoadComplete(std::string url, std::string json_parms)
 {	
 	auto it = url.find("localhost");
 	if (it != url.npos) {
-	//	return;
+		return;
 	}
 	std::string dbpath;
 	std::string pwd;
@@ -192,7 +163,7 @@ void BasicForm::M3u8LoadComplete(std::string url, std::string json_parms)
 	{
 		models::M3u8Task task;
 		bool f = repos::M3u8Repo::GetM3u8Task(db_, url, task);
-		//if (task._id == 0) 
+		if (task._id == 0) 
 		{
 
 			int length = list_box_->GetCount();
@@ -203,20 +174,20 @@ void BasicForm::M3u8LoadComplete(std::string url, std::string json_parms)
 				if (ctrl->equalUrl(url)) {
 					isexists = true;
 					break;
-				}				 
+				}
 			}
-			//if (!isexists) 
+			if (!isexists) 
 			{
-				models::M3u8Task m(nbase::UTF16ToUTF8(_title), url, json_parms);
-				this->AddUCTaskItem(m);
+				nbase::ThreadManager::PostTask(kThreadUI, nbase::Bind(&UiExtWorker::add_uitaskitem, UiExtWorker::GetInstance(), nbase::UTF16ToUTF8(_title),url,json_parms));
+				 
 			}
-			/*else {
+			else {
 				nim_comp::Toast::ShowToast(L"该URL已存在", 3000, GetHWND());
-			}*/
+			}
 		}
-		/*else {
+		else {
 			nim_comp::Toast::ShowToast(L"该URL已存在", 3000, GetHWND());
-		}*/
+		}
 	}
 	db_.Close();
 } 
@@ -230,125 +201,9 @@ LRESULT BasicForm::OnClose(UINT uMsg, WPARAM wParam, LPARAM lParam, BOOL& bHandl
 }
 //////////////////////////////////////////////////////////////////////////////////////////////////////////
 
-void BasicForm::kThreadTaskProcess_GetAllTask( ) {
-	std::string dbpath;
-	std::string pwd;
-	repos::M3u8Repo::GetDbInfo(dbpath, pwd);
-	ndb::SQLiteDB db_;
-	bool result = db_.Open(dbpath.data(), pwd, ndb::SQLiteDB::modeReadWrite | ndb::SQLiteDB::modeCreate | ndb::SQLiteDB::modeSerialized);
-	if (result)
-	{
-		std::list<models::M3u8Task> list;
-		repos::M3u8Repo::QueryAll(db_, list);
-		for (auto it = list.begin(); it != list.end(); it++)// auto mt : list)
-		{
-			this->AddUCTaskItem(*it);
-		}
-	}
-	db_.Close();
-	//Sleep(10000);
-	this->TaskListLoading(false);
-	//StartProcess();
-	this->RunAria2();
 
-	nbase::ThreadManager::PostDelayedTask(kThreadTaskProcess, nbase::Bind(&BasicForm::kThreadTaskProcess_DelayTask_ProcessDownload, this), nbase::TimeDelta::FromMilliseconds(1000 * 3));
-}
-void BasicForm::RunAria2() {
-	this->Aria2Conf();
-	std::wstring theme_dir = nbase::win32::GetCurrentModuleDirectory();
-	DWORD processId = GetCurrentProcessId();//当前进程id
-	//--stop-with-process=
-	std::wstring pid = nbase::Uint64ToString16(processId);
-	std::wstring cmdline = nbase::StringPrintf(L"%sstatic\\aria2c.exe --conf-path=%sstatic\\aria2.conf --check-certificate=false --stop-with-process=%s",
-		theme_dir.data(), theme_dir.data(), pid.data()); 
-	STARTUPINFO si;
-	PROCESS_INFORMATION pi;
-	ZeroMemory(&si, sizeof(si));
-	si.cb = sizeof(si);
-	//隐藏掉可能出现的cmd命令窗口
-	si.dwFlags = STARTF_USESHOWWINDOW;
-	si.wShowWindow = SW_SHOW;//SW_HIDE
-	ZeroMemory(&pi, sizeof(pi));
-	BOOL bRet = ::CreateProcess(
-		NULL,//启动程序路径名 
-		(LPWSTR)(cmdline.c_str()), //参数（当exeName为NULL时，可将命令放入参数前） 
-		NULL, //使用默认进程安全属性 
-		NULL, //使用默认线程安全属性 
-		FALSE,//句柄不继承 
-		0, //使用正常优先级 
-		NULL, //使用父进程的环境变量 
-		NULL, //指定工作目录 
-		&si, //子进程主窗口如何显示 
-		&pi); //用于存放新进程的返回信息 
+ 
 
-		//NULL, (LPWSTR)(cmdline.c_str()), NULL, NULL, FALSE, NORMAL_PRIORITY_CLASS, NULL, NULL, &si, &pi);
-	DWORD ecode = 0;
-	if (bRet == 0)
-	{
-		ecode = GetLastError();
-	}
-}
-void BasicForm::kThreadTaskProcess_DelayTask_ProcessDownload() 
-{
-	LOG(INFO) << "kThreadTaskProcess_DelayTask_ProcessDownload";
-	int length = list_box_->GetCount();
-	bool isDownloading = false;
-	for (int i = 0; i < length; i++)
-	{
-		UCTaskItem* ctrl = (UCTaskItem*)(list_box_->GetItemAt(i));
-		if (ctrl->GetTaskStatus() == models::M3u8Task::Status::Downloading) {
-			isDownloading = true;
-			ctrl->ProcessDownloading();
-			break;
-		}
-	}
-	if (!isDownloading) {
-		for (int i = 0; i < length; i++)
-		{
-			UCTaskItem* ctrl = (UCTaskItem*)(list_box_->GetItemAt(i));
-			if (ctrl->GetTaskStatus() == models::M3u8Task::Status::WaitingForDownload) {
-				ctrl->ProcessWaitingForDownload();
-				break;
-			}
-		}
-	}
-
-	nbase::ThreadManager::PostDelayedTask(kThreadTaskProcess, nbase::Bind(&BasicForm::kThreadTaskProcess_DelayTask_ProcessDownload, this)
-		, nbase::TimeDelta::FromMilliseconds(1000));
-}
-
-void BasicForm::Aria2Conf() {
-	u_short port = 6800;
-	for (int i = 0; i < 1000; i++) {
-		port = port + i;
-		if (TestBindPort(port)) {
-			break;
-		}
-	}
-	rpc_listen_port = port;
-	std::string path = nbase::UTF16ToUTF8(nbase::win32::GetCurrentModuleDirectory());
-	boost::format arai2conf = boost::format(
-		"log=%1%static\\log\\aria2.log\n"
-		"daemon=true\n"
-		"input-file=%1%static\\aria2.session\n"
-		"save-session=%1%static\\aria2.session\n"
-		"save-session-interval=30\n"
-		"continue=true\n"
-		"file-allocation=prealloc\n"
-		"user-agent=Mozilla/5.0 (Windows NT 10.0; WOW64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/78.0.3904.108 Safari/537.36\n"
-		"disable-ipv6=true\n"
-		"always-resume=true\n"
-		"check-integrity=true\n"
-		"max-concurrent-downloads=15\n"
-		"max-connection-per-server=5\n"
-		"min-split-size=10M\n"
-		"split=5\n"
-		"enable-rpc=true\n"
-		"rpc-allow-origin-all=true\n"
-		"rpc-listen-port=%2%\n")%path%rpc_listen_port;
-	std::string alltext = arai2conf.str();
-	int f = nbase::WriteFile(nbase::win32::GetCurrentModuleDirectory() + L"static\\aria2.conf", alltext);
-}
 
 #define MY_PIPE_BUFFER_SIZE 1024
 void StartProcess()

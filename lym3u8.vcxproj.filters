@@ -63,6 +63,15 @@
     <ClInclude Include="http_server_runner.h">
       <Filter>runner</Filter>
     </ClInclude>
+    <ClInclude Include="ui_ext_worker.h">
+      <Filter>头文件</Filter>
+    </ClInclude>
+    <ClInclude Include="misc_worker.h">
+      <Filter>头文件</Filter>
+    </ClInclude>
+    <ClInclude Include="aria2_helper.h">
+      <Filter>头文件</Filter>
+    </ClInclude>
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="lym3u8.cpp">
@@ -92,6 +101,15 @@
     <ClCompile Include="http_server_runner.cpp">
       <Filter>runner</Filter>
     </ClCompile>
+    <ClCompile Include="ui_ext_worker.cpp">
+      <Filter>源文件</Filter>
+    </ClCompile>
+    <ClCompile Include="misc_worker.cpp">
+      <Filter>源文件</Filter>
+    </ClCompile>
+    <ClCompile Include="aria2_helper.cpp">
+      <Filter>源文件</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <ResourceCompile Include="lym3u8.rc">
@@ -105,5 +123,11 @@
     <Image Include="lym3u8.ico">
       <Filter>资源文件</Filter>
     </Image>
+  </ItemGroup>
+  <ItemGroup>
+    <None Include="..\Debug\resources.zip" />
+    <None Include="theme2.bin">
+      <Filter>资源文件</Filter>
+    </None>
   </ItemGroup>
 </Project>

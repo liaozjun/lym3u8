@@ -11,7 +11,7 @@
 #include "framework.h"
 
 #include "targetver.h"
-
+#include "Resource.h"
 // C runtime header
 //#include <stdlib.h>
 //#include <malloc.h>
@@ -30,7 +30,7 @@
 enum ThreadId
 {
 	kThreadUI,
-	kThreadTaskProcess,
+	kThreadMisc,
 	kThreadHttpServer,
 };
 #ifdef _DEBUG
@@ -39,11 +39,13 @@ enum ThreadId
 #pragma comment(lib,"wxsqlite3_d.lib")
 #pragma comment(lib, "db_d.lib")
 //#pragma comment(lib,"libeay32.lib")
-
 #else
 #pragma comment(lib,"jsoncpp.lib")
 #pragma comment(lib,"libcurl.lib")
+#pragma comment(lib,"wxsqlite3.lib")
+#pragma comment(lib,"db.lib")
 #endif
 
-
+bool TestBindPort(u_short port);
+std::string GetGuid();
 #endif //PCH_H

@@ -64,11 +64,14 @@ namespace repos {
 				if (et != NULL) {
 					nbase::StringToInt64(et, &(t.end_time));
 				}
-				t.LoadDbInit(id, title, url, (models::M3u8Task::Status)status, folder_name, content,t.create_time,t.end_time);
-				t.count = stat.GetIntField(8);
-				t.count_downloading = stat.GetIntField(9);
-				t.count_complete = stat.GetIntField(10);
-				t.count_error = stat.GetIntField(11);
+				int count = stat.GetIntField(8);
+				int count_downloading = stat.GetIntField(9);
+				int count_complete = stat.GetIntField(10);
+				int count_error = stat.GetIntField(11);
+
+				t.LoadDbInit(id, title, url, (models::M3u8Task::Status)status, folder_name, content,t.create_time,t.end_time
+					,count,count_downloading,count_complete,count_error);
+				
 				list.push_back(t);
 			}
 			catch (...) {
@@ -78,21 +81,9 @@ namespace repos {
 		stat.Finalize();
 		return true;
 	}
-	int M3u8Repo::Insert(ndb::SQLiteDB& db, models::M3u8Task& task) {
-		char buffer[64] = { 0 };
-		GUID guid;
-		if (CoCreateGuid(&guid))
-		{
-			//fprintf(stderr, "create guid error\n");
-			return -1;
-		}
-		_snprintf_s(buffer, sizeof(buffer),
-			"%08X%04X%04x%02X%02X%02X%02X%02X%02X%02X%02X",
-			guid.Data1, guid.Data2, guid.Data3,
-			guid.Data4[0], guid.Data4[1], guid.Data4[2],
-			guid.Data4[3], guid.Data4[4], guid.Data4[5],
-			guid.Data4[6], guid.Data4[7]);
-		task._folder_name = buffer;
+	int M3u8Repo::Insert(ndb::SQLiteDB& db, models::M3u8Task& task) 
+	{
+		task._folder_name = task._folder_name;
 		nbase::Time tm = nbase::Time::Now();		
 		int64_t iv = tm.ToInternalValue();
 		task.create_time = iv;
@@ -140,7 +131,7 @@ namespace repos {
 			int ret = db.Query(sqlts.data());
 		};
 		std::for_each(urls.begin(), urls.end(), insert_detail);
-
+		task.count = urls.size();
 		return resi;
 	}
 	int M3u8Repo::UpdateTaskStatus(ndb::SQLiteDB& db,int64 m3u8_task_id, models::M3u8Task::Status status)
@@ -249,7 +240,7 @@ namespace repos {
 				if (et != NULL) {
 					nbase::StringToInt64(et, &(task.end_time));
 				}
-				task.LoadDbInit(id, title, url, (models::M3u8Task::Status)status, folder_name, content, task.create_time, task.end_time);
+				task.LoadDbInit(id, title, url, (models::M3u8Task::Status)status, folder_name, content, task.create_time, task.end_time,0,0,0,0);
 			}
 			catch (...) {
 				LOG(INFO) << "QueryAll";

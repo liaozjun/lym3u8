@@ -21,12 +21,28 @@ namespace models {
 			ReDownloadErrorTs = 5
 		};
 		M3u8Task() {
+			_id = 0;
 			create_time = 0;
 			end_time = 0; 
 		};
+		M3u8Task(const models::M3u8Task& t) {
+			this->_id = t._id;
+			this->_title = t._title;
+			this->_url = t._url;
+			this->_status = t._status;
+			this->_folder_name = t._folder_name;
+			this->_content = t._content;
+			this->create_time = t.create_time;
+			this->end_time = t.end_time;
+			this->count = t.count;
+			this->count_downloading = t.count_downloading;
+			this->count_complete = t.count_complete;
+			this->count_error = t.count_error;
+		}
 		M3u8Task(std::string title, std::string url, std::string content);
 		~M3u8Task();
-		void LoadDbInit(int64 id, std::string title, std::string url, models::M3u8Task::Status status, std::string folder_name, std::string content, int64_t ct, int64_t et);
+		void LoadDbInit(int64 id, std::string title, std::string url, models::M3u8Task::Status status, std::string folder_name
+			, std::string content, int64_t ct, int64_t et, int count, int count_downloading, int count_complete, int count_error);
 		bool ProcessContext(std::list<std::string>& urls, std::list<std::string>& allm3u8);
 		 
 	public:
