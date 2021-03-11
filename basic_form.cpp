@@ -62,7 +62,8 @@ void BasicForm::InitWindow()
 #endif // _DEBUG
 
 	//cef_control_->LoadURL(L"https://cn.pornhub.com/view_video.php?viewkey=ph5d681e304a483");
-	cef_control_->LoadURL(nbase::win32::GetCurrentModuleDirectory() + L"dist/index.html");
+	cef_control_->LoadURL(L"http://localhost:8080/");
+	//cef_control_->LoadURL(nbase::win32::GetCurrentModuleDirectory() + L"dist/index.html");
 	list_box_ = dynamic_cast<ui::ListBox*>(FindControl(L"list"));
 	task_loading_ = dynamic_cast<ui::HBox*>(FindControl(L"task_loading"));
 	btn_navigate = dynamic_cast<ui::Button*>(FindControl(L"btn_navigate"));
